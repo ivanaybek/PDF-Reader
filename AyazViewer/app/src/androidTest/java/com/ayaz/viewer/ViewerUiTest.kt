@@ -103,10 +103,16 @@ class ViewerUiTest {
             rule.onNode(hasSetTextAction()).performTextReplacement("12")
             rule.onNodeWithText("Git").performClick()
             waitDesc("Sayfa 12 / 30")
-            Thread.sleep(1500) // sayfa kaydı (debounce)
         }
-        val saved = runBlocking { TestFiles.app.recents.get(entry.id) }
-        assertTrue("kaydedilen sayfa: ${saved?.lastPage}", saved?.lastPage == 11)
+        // Görüntüleyici kapanınca sayfa kaydedilir (diske yazma eşzamansızdır).
+        var saved = 0
+        val deadline = System.currentTimeMillis() + 5000
+        while (System.currentTimeMillis() < deadline) {
+            saved = runBlocking { TestFiles.app.recents.get(entry.id)?.lastPage ?: -1 }
+            if (saved == 11) break
+            Thread.sleep(100)
+        }
+        assertTrue("kaydedilen sayfa: $saved", saved == 11)
         ActivityScenario.launch<ViewerActivity>(ViewerActivity.intentFor(TestFiles.app, entry.id)).use {
             waitDesc("Sayfa 12 / 30")
         }

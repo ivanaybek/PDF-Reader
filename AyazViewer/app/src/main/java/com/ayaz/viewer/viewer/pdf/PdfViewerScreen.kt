@@ -59,7 +59,9 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -206,6 +208,11 @@ fun PdfViewerScreen(
     }
     LaunchedEffect(Unit) {
         snapshotFlow { currentPage }.distinctUntilChanged().debounce(400).collectLatest { onPageChanged(it) }
+    }
+    // Görüntüleyiciden çıkarken (veya döndürmede) son sayfa beklemeden kaydedilir.
+    val latestOnPageChanged by rememberUpdatedState(onPageChanged)
+    DisposableEffect(Unit) {
+        onDispose { latestOnPageChanged(currentPage) }
     }
     var indicatorVisible by remember { mutableStateOf(true) }
     LaunchedEffect(Unit) {
