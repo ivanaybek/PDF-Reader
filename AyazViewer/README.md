@@ -154,8 +154,8 @@ Testlerin tamamı depoda bulunur ve GitHub Actions’ta otomatik çalışır:
 | Test grubu | Nerede | Kapsam |
 |---|---|---|
 | `xlsx/src/test` (JVM, 23 test) | `./gradlew :xlsx:test` | Hücre referansları, 60+ sayı/tarih biçimi senaryosu, basit/çok sayfalı/birleşik/el yazımı XLSX, Türkçe karakterler, 1904 tarih sistemi, bozuk/boş/eski .xls/ZIP-olmayan dosyalar, 100.000 × 12 büyük sayfa, hücre sınırı, iptal, Türkçe arama |
-| `app/src/test` (JVM) | `./gradlew :app:testDebugUnitTest` | Dosya türü tespiti (içerik imzası), Türkçe ad temizleme, uzantı, boyut/tarih biçimleri |
-| `app/src/androidTest` (emülatör: Android 13 ve 15) | `connectedDebugAndroidTest` | Tek/çok sayfalı/400 sayfalık/karışık boyutlu PDF çizimi ve süreleri, şifreli/bozuk/boş PDF, Türkçe dosya adı, PDF metin araması (Android 15), XLSX’in Android XML ayrıştırıcısı ile okunması, büyük XLSX, son açılanların yeniden başlatmada korunması, “Birlikte aç” (VIEW) ve “Paylaş” (SEND) niyetleri, paylaşım dosyasının adı/boyutu/içeriği, WhatsApp/Telegram yüklü değil uyarısı, alt menü gezinmesi, koyu/açık tema, ekran döndürme, sayfaya git ve son sayfayı hatırlama, sayfa sekmeleri, hücre araması |
+| `app/src/test` (JVM, 6 test) | `./gradlew :app:testDebugUnitTest` | Dosya türü tespiti (içerik imzası), Türkçe ad temizleme, uzantı, boyut/tarih biçimleri |
+| `app/src/androidTest` (34 test; emülatör: Android 13 ve 15) | `connectedDebugAndroidTest` | Tek/çok sayfalı/400 sayfalık/karışık boyutlu PDF çizimi ve süreleri, şifreli/bozuk/boş PDF, Türkçe dosya adı, PDF metin araması (Android 15), XLSX’in Android XML ayrıştırıcısı ile okunması, büyük XLSX, son açılanların yeniden başlatmada korunması, “Birlikte aç” (VIEW) ve “Paylaş” (SEND) niyetleri, paylaşım dosyasının adı/boyutu/içeriği, WhatsApp/Telegram yüklü değil uyarısı, alt menü gezinmesi, koyu/açık tema, ekran döndürme, sayfaya git ve son sayfayı hatırlama, sayfa sekmeleri, hücre araması |
 
 Test dosyaları `tools/generate_samples.py` ile üretilir; `samples/` klasöründeki dosyaları telefona kopyalayarak elle de deneyebilirsiniz.
 
