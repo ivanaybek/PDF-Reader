@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ayaz.viewer.core.FileKind
@@ -99,7 +100,7 @@ class ViewerUiTest {
             waitDesc("Sayfa 1 / 30")
             rule.onNodeWithContentDescription("Diğer").performClick()
             rule.onNodeWithText("Sayfaya git").performClick()
-            rule.onNode(hasSetTextAction()).performTextInput("2")
+            rule.onNode(hasSetTextAction()).performTextReplacement("12")
             rule.onNodeWithText("Git").performClick()
             waitDesc("Sayfa 12 / 30")
             Thread.sleep(1500) // sayfa kaydı (debounce)
