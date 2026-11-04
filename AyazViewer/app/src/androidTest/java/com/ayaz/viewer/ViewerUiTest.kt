@@ -2,7 +2,9 @@ package com.ayaz.viewer
 
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -51,6 +53,42 @@ class ViewerUiTest {
             rule.onNodeWithContentDescription("Paylaş").performClick()
             waitText("WhatsApp")
             rule.onNodeWithText("Telegram").assertExists()
+        }
+    }
+
+    /** [r],[g],[b] rengine yakın piksel sayısı (ekran görüntüsü üzerinde). */
+    private fun countColor(desc: String, r: Int, g: Int, b: Int, tol: Int = 18): Int {
+        val map = rule.onNodeWithContentDescription(desc).captureToImage().toPixelMap()
+        var n = 0
+        for (y in 0 until map.height step 2) for (x in 0 until map.width step 2) {
+            val c = map[x, y]
+            if (kotlin.math.abs((c.red * 255).toInt() - r) <= tol &&
+                kotlin.math.abs((c.green * 255).toInt() - g) <= tol &&
+                kotlin.math.abs((c.blue * 255).toInt() - b) <= tol
+            ) n++
+        }
+        return n
+    }
+
+    @Test
+    fun pdfPageIsActuallyDrawn() {
+        val entry = TestFiles.seedRecent("single_page.pdf", "Çizim.pdf", FileKind.PDF)
+        ActivityScenario.launch<ViewerActivity>(ViewerActivity.intentFor(TestFiles.app, entry.id)).use {
+            waitDesc("Sayfa 1 / 1")
+            // Sayfadaki mavi kare (#4F7CFF) ekranda görünmeli.
+            rule.waitUntil(20_000) { countColor("Sayfa 1", 0x4F, 0x7C, 0xFF) > 500 }
+        }
+    }
+
+    @Test
+    fun xlsxGridDrawsCellFills() {
+        val entry = TestFiles.seedRecent("simple.xlsx", "Dolgu.xlsx", FileKind.XLSX)
+        ActivityScenario.launch<ViewerActivity>(ViewerActivity.intentFor(TestFiles.app, entry.id)).use {
+            waitDesc("Tablo: Satışlar")
+            rule.waitForIdle()
+            // Başlık satırının dolgu rengi (#1F4E79) tabloda çizilmiş olmalı.
+            val n = countColor("Tablo: Satışlar", 0x1F, 0x4E, 0x79, tol = 10)
+            assertTrue("başlık dolgusu bulunamadı ($n)", n > 300)
         }
     }
 

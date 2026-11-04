@@ -40,7 +40,7 @@ class PdfControllerTest {
         val c = open(TestFiles.cacheCopy("single_page.pdf"))
         try {
             assertEquals(1, c.pageCount)
-            val bmp = assertNotNull(c.render(0, 1080))!!
+            val bmp = c.render(0, 1080)!!
             assertEquals(1080, bmp.width)
             assertEquals(1527, bmp.height, 2)
             // Mavi kare: PDF'te (60,400)-(260,600) nokta, alt-sol orijinli.

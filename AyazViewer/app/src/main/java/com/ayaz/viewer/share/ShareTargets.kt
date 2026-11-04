@@ -70,7 +70,7 @@ object ShareTargets {
             type = mimeType
             putExtra(Intent.EXTRA_STREAM, contentUri)
             // ClipData, geçici okuma izninin hedef uygulamaya güvenle aktarılmasını sağlar.
-            clipData = ClipData.newUri(null, displayName, contentUri)
+            clipData = ClipData.newRawUri(displayName, contentUri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             setPackage(packageName)
         }

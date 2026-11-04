@@ -250,7 +250,13 @@ class PdfController private constructor(
             val budget = cacheBudget(context)
             var fd: ParcelFileDescriptor? = null
             try {
-                fd = openFd()
+                fd = try {
+                    openFd()
+                } catch (e: SecurityException) {
+                    throw UserFacingException(ErrorMessages.NO_ACCESS, e)
+                } catch (e: java.io.FileNotFoundException) {
+                    throw UserFacingException(ErrorMessages.NO_ACCESS, e)
+                }
                 if (fd.statSize == 0L) throw UserFacingException(ErrorMessages.EMPTY)
                 val r = PdfRenderer(fd)
                 return PdfController(fd, r, null, budget)

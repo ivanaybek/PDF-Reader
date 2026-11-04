@@ -490,6 +490,7 @@ private fun PdfPageItem(
     val targetWidth = (pageWidthPx * renderScale).roundToInt()
     var bitmap by remember(index) { mutableStateOf(controller.cached(index, targetWidth) ?: controller.bestCached(index)) }
     LaunchedEffect(index, targetWidth) {
+        if (pageWidthPx < 50) return@LaunchedEffect // yerleşim henüz ölçülmedi
         // Kısa bir gecikme: hızlı kaydırmada ekrandan çıkan sayfalar hiç çizilmez.
         if (controller.cached(index, targetWidth) == null) delay(30)
         controller.render(index, targetWidth)?.let { bitmap = it }
