@@ -1,0 +1,15 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/captures
+.externalNativeBuild
+.cxx
+**/build/
+*.apk
+*.aab
+# Gizli imzalama bilgileri asla depoya eklenmez
+release.jks
+keystore.properties
