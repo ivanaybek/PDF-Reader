@@ -97,7 +97,12 @@ AyazViewer/
 
 ## 3. APK’yi edinme ve kurma
 
-### A) GitHub Actions’tan hazır debug APK (önerilen)
+### A) Depodaki hazır debug APK (en kolayı)
+Derleme bittiğinde GitHub, kurulabilir APK’yı depoya otomatik ekler: **`AyazViewer/AyazViewer-debug.apk`**
+(yanında `AyazViewer-debug.apk.sha256` doğrulama dosyası). GitHub’da dosyayı açıp **Download raw file** ile indirebilir
+veya depoyu indirdiğinizde `AyazViewer` klasöründe bulabilirsiniz.
+
+### A2) GitHub Actions’tan debug APK
 Her `push` işleminde GitHub sunucularında APK otomatik derlenir.
 
 1. GitHub’da depoyu açın → **Actions** → **Ayaz Viewer** iş akışı → en son başarılı çalıştırma.
