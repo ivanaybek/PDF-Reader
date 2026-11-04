@@ -2,6 +2,7 @@ package com.ayaz.viewer
 
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.captureToImage
@@ -43,6 +44,15 @@ class ViewerUiTest {
     private fun waitText(text: String, timeout: Long = 20_000) =
         rule.waitUntil(timeout) { rule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
 
+    /** Ekran yönü gerçekten değişip etkinlik yeniden oluşturulana kadar bekler. */
+    private fun awaitOrientation(scenario: ActivityScenario<ViewerActivity>, orientation: Int) {
+        rule.waitUntil(30_000) {
+            var current = -1
+            scenario.onActivity { current = it.resources.configuration.orientation }
+            current == orientation
+        }
+    }
+
     @Test
     fun pdfOpensRotatesAndShares() {
         val entry = TestFiles.seedRecent("multi_page.pdf", "Çok Sayfalı.pdf", FileKind.PDF)
@@ -50,9 +60,13 @@ class ViewerUiTest {
             waitDesc("Sayfa 1 / 30")
             waitText("30 sayfa")
             scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
+            awaitOrientation(scenario, Configuration.ORIENTATION_LANDSCAPE)
             waitText("30 sayfa")
             waitDesc("Sayfa 1 / 30")
             scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
+            // Dönüş tamamlanmadan tıklanırsa tıklama yeniden oluşturulan ekrana denk gelebilir.
+            awaitOrientation(scenario, Configuration.ORIENTATION_PORTRAIT)
+            waitDesc("Sayfa 1 / 30")
             rule.onNodeWithContentDescription("Paylaş").performClick()
             waitText("WhatsApp")
             rule.onNodeWithText("Telegram").assertExists()
