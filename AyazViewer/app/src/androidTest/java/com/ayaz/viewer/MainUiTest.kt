@@ -25,7 +25,11 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class MainUiTest {
 
-    @get:Rule
+    /** Takılan bir test, adıyla birlikte başarısız olsun (sonsuza dek beklemesin). */
+    @get:org.junit.Rule(order = 0)
+    val timeout: org.junit.rules.Timeout = org.junit.rules.Timeout.seconds(120)
+
+    @get:Rule(order = 1)
     val rule = createAndroidComposeRule<MainActivity>()
 
     @Before

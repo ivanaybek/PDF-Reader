@@ -23,6 +23,10 @@ import java.util.zip.ZipOutputStream
 @RunWith(AndroidJUnit4::class)
 class XlsxOnDeviceTest {
 
+    /** Takılan bir test, adıyla birlikte başarısız olsun (sonsuza dek beklemesin). */
+    @get:org.junit.Rule(order = 0)
+    val timeout: org.junit.rules.Timeout = org.junit.rules.Timeout.seconds(120)
+
     private suspend fun load(c: XlsxController, index: Int): SheetLoad.Ready = withContext(Dispatchers.Main) {
         c.select(index)
         withTimeout(60_000) {

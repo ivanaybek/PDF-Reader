@@ -19,6 +19,10 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class RecentFilesPersistenceTest {
 
+    /** Takılan bir test, adıyla birlikte başarısız olsun (sonsuza dek beklemesin). */
+    @get:org.junit.Rule(order = 0)
+    val timeout: org.junit.rules.Timeout = org.junit.rules.Timeout.seconds(120)
+
     @Test
     fun recentsSurviveRestart() = runBlocking {
         val app = TestFiles.app

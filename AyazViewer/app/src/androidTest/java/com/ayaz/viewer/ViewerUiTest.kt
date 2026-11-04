@@ -30,7 +30,11 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class ViewerUiTest {
 
-    @get:Rule
+    /** Takılan bir test, adıyla birlikte başarısız olsun (sonsuza dek beklemesin). */
+    @get:org.junit.Rule(order = 0)
+    val timeout: org.junit.rules.Timeout = org.junit.rules.Timeout.seconds(120)
+
+    @get:Rule(order = 1)
     val rule = createEmptyComposeRule()
 
     private fun waitDesc(desc: String, timeout: Long = 20_000) =
@@ -46,11 +50,9 @@ class ViewerUiTest {
             waitDesc("Sayfa 1 / 30")
             waitText("30 sayfa")
             scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
-            rule.waitForIdle()
             waitText("30 sayfa")
             waitDesc("Sayfa 1 / 30")
             scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
-            rule.waitForIdle()
             rule.onNodeWithContentDescription("Paylaş").performClick()
             waitText("WhatsApp")
             rule.onNodeWithText("Telegram").assertExists()
@@ -86,7 +88,7 @@ class ViewerUiTest {
         val entry = TestFiles.seedRecent("simple.xlsx", "Dolgu.xlsx", FileKind.XLSX)
         ActivityScenario.launch<ViewerActivity>(ViewerActivity.intentFor(TestFiles.app, entry.id)).use {
             waitDesc("Tablo: Satışlar")
-            rule.waitForIdle()
+            Thread.sleep(500)
             // Başlık satırının dolgu rengi (#1F4E79) tabloda çizilmiş olmalı.
             val n = countColor("Tablo: Satışlar", 0x1F, 0x4E, 0x79, tol = 10)
             assertTrue("başlık dolgusu bulunamadı ($n)", n > 300)
@@ -128,7 +130,6 @@ class ViewerUiTest {
             rule.onNode(hasSetTextAction()).performImeAction()
             waitDesc("Seçili hücre A2")
             scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
-            rule.waitForIdle()
             waitDesc("Tablo: Satışlar")
             scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
         }

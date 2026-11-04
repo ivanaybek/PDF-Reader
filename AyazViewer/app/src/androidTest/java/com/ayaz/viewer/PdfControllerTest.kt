@@ -18,6 +18,10 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class PdfControllerTest {
 
+    /** Takılan bir test, adıyla birlikte başarısız olsun (sonsuza dek beklemesin). */
+    @get:org.junit.Rule(order = 0)
+    val timeout: org.junit.rules.Timeout = org.junit.rules.Timeout.seconds(120)
+
     private fun open(file: File): PdfController = PdfController.open(
         context = TestFiles.app,
         openFd = { ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY) },
@@ -135,10 +139,10 @@ class PdfControllerTest {
         assumeTrue("Bu cihazda PdfRenderer metin araması yok (Android 15+ gerekir)", PdfController.searchAvailable())
         val c = open(TestFiles.cacheCopy("multi_page.pdf"))
         try {
-            val hits = c.search("anahtar") {}
+            val hits = kotlinx.coroutines.withTimeout(60_000) { c.search("anahtar") {} }
             assertEquals(setOf(6, 22), hits.map { it.page }.toSet())
             assertTrue(hits.all { it.rects.isNotEmpty() })
-            assertTrue(c.search("bulunmayan-kelime-xyz") {}.isEmpty())
+            assertTrue(kotlinx.coroutines.withTimeout(60_000) { c.search("bulunmayan-kelime-xyz") {} }.isEmpty())
         } finally {
             c.close()
         }
