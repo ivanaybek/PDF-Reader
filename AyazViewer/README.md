@@ -17,11 +17,14 @@ Hesap, abonelik, reklam, analitik, sunucu ve internet izni yoktur.
 | Derleme | Gradle 8.14.3 (wrapper), Android Gradle Plugin 8.10.1 | Standart Android Studio projesi |
 | PDF | Android `PdfRenderer` (sistem bileşeni) | Ek SDK gerektirmez, çevrimdışı |
 | PDF arama | `PdfRenderer.Page.searchText()` | Android 15+ (veya güncel sistem PDF bileşeni) |
+| PDF düzenleme/oluşturma | [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android) 2.0.27 (Apache 2.0) | Çevrimdışı; işaretlemeleri gerçek PDF notu olarak yazar |
+| Yazı tipi | DejaVu Sans (Bitstream Vera lisansı, `assets/fonts`) | PDF'e Türkçe karakterli metin yazmak için |
 | XLSX | Projeye özel `:xlsx` modülü (saf Kotlin, ZIP + akışlı XML) | Apache POI gibi ağır kitaplıklar yerine hızlı ve hafif |
 | Dosya erişimi | Storage Access Framework (SAF), `FileProvider` | Geniş depolama izni gerekmez |
 | Veri saklama | Uygulama içi JSON (`AtomicFile`), `SharedPreferences` | Ek veritabanı kitaplığı yok |
 
-Üçüncü taraf SDK kullanılmaz; yalnızca AndroidX/Compose ve Kotlin coroutines bulunur.
+Reklam, analitik veya ağ kullanan hiçbir SDK yoktur. AndroidX/Compose ve Kotlin coroutines dışında tek kitaplık,
+PDF düzenleme için gereken açık kaynak PdfBox-Android'dir (internet izni yoktur; CI her derlemede doğrular).
 
 ### Proje yapısı
 
@@ -79,6 +82,28 @@ AyazViewer/
 - Kalıcı erişim izni verilemeyen dosyalar (ör. WhatsApp’tan gelenler) uygulamanın özel alanına birebir kopyalanır; böylece “Son Açılanlar”dan tekrar açılabilir. Bu kopyalar Ayarlar’dan temizlenebilir
 - Kullanıcının dosyaları hiçbir zaman değiştirilmez veya silinmez; “Listeden kaldır” yalnızca listeyi ve uygulamanın kendi kopyasını etkiler
 - Bozuk, boş, şifreli veya desteklenmeyen dosyalarda uygulama çökmez; Türkçe açıklama gösterilir
+
+**Düzenleme**
+- Görüntüleyicinin üst çubuğunda **Düzenle** (kalem) simgesi. Düzenleme kipinde: **Geri al**, **Kaydet**, **Bitti**.
+- **Excel:** hücreye dokunun, üstteki kutuya değer yazıp ✓'ye basın (sonra alttaki hücreye geçer). Sayılar Türkçe
+  yazılır (`1.234,56`, `12,5%`); tarih biçimli hücrelere `05.03.2024`; formüller İngilizce yazılır (`=SUM(A1:A5)`);
+  başına `'` konan değer metin olarak kalır. Satır/sütun menüsü: üstüne/altına satır ekle, satır sil, soluna/sağına
+  sütun ekle, sütun sil, hücreyi temizle. Ekleme/silmede formüller, birleşik hücreler, sütun genişlikleri, koşullu
+  biçimler ve veri doğrulamaları birlikte kayar; silinen hücreye başvuran formül Excel'deki gibi `#REF!` olur.
+- **PDF:** Kalem, vurgulayıcı, metin notu (5 renk, 3 kalınlık), silgi (henüz kaydedilmemiş işaretler için), sayfayı
+  döndür, sayfayı sil. Tek parmakla çizilir; iki parmakla kaydırılır/yakınlaştırılır. İşaretlemeler gerçek PDF notu
+  (Ink / FreeText) olarak eklenir: belgenin kendi metni değişmez, aranabilir ve seçilebilir kalır; Adobe, Chrome,
+  telefonun kendi görüntüleyicisi gibi diğer uygulamalarda da görünür.
+- **Kaydetme her seferinde sorulur:** *Yeni kopya olarak kaydet* (sistem kaydetme ekranıyla istediğiniz klasöre,
+  "Ad (düzenlendi).xlsx" önerisiyle) veya *Asıl dosyanın üzerine yaz* (yalnızca yazma izni varsa; geri alınamaz
+  uyarısı gösterilir). Kaydetmeden çıkmaya çalışırsanız uyarı çıkar. Kaydedene kadar asıl dosyaya dokunulmaz.
+
+**Oluştur**
+- Ana sayfadaki **Oluştur** kartı: *Yeni Excel tablosu* (boş tablo, doğrudan düzenleme kipinde), *Yeni PDF (metin
+  yaz)* (başlık + metin yazılır, satırlar kaydırılarak sayfalara bölünür), *Boş PDF* (1/3/5 sayfa; kalem ve not için).
+- Oluşturulan belgeler uygulamada saklanır ve Son Açılanlar'da görünür. *Yeni kopya olarak kaydet* ile telefona
+  (ör. İndirilenler) kaydedilir; WhatsApp/Telegram ile paylaşılabilir. Bu belgeleri listeden kaldırmak onları
+  sildiği için onay istenir.
 
 **WhatsApp / Telegram ile paylaşım**
 - Görüntüleyicinin sağ üstünde paylaş simgesi; son açılanlarda üç nokta → **Paylaş**
@@ -173,6 +198,17 @@ Gerçek test sonuçları ve hangi testlerin nerede çalıştığı için `TEST_R
 - **PDF metin araması** Android 15+ (veya Google Play sistem güncellemesiyle güncel PDF bileşeni olan) cihazlarda çalışır. Android 13/14’te bileşen eskiyse arama yerine Türkçe bilgi mesajı gösterilir. Taranmış (görüntü) PDF’lerde metin katmanı olmadığından arama sonuç vermez.
 - **Parola korumalı PDF** ve **parola korumalı XLSX** dosyaları açılamaz (açıklayıcı mesaj gösterilir).
 - **Eski .xls (Excel 97–2003)** biçimi desteklenmez; dosyayı .xlsx olarak kaydetmek gerekir.
+- **PDF'te var olan metin değiştirilemez** (PDF bir baskı düzeni biçimidir); üzerine yazma/işaretleme, sayfa döndürme
+  ve silme yapılabilir. Silgi yalnızca henüz kaydedilmemiş işaretlemeleri siler; kaydedilmiş notlar diğer PDF
+  uygulamalarıyla kaldırılabilir. Sayfa döndürme/silme sonrası "Geri al" ile geri dönülebilir.
+- **Excel düzenlemede** formüller yeniden hesaplanmaz (Excel'de açılınca hesaplanır), formül yazımı İngilizcedir.
+  Hücre biçimi (renk, kalın vb.) değiştirilemez, değer yazılan hücrenin mevcut biçimi korunur. Excel *tablosu*
+  (Tablo olarak biçimlendir) içeren sayfalarda satır/sütun ekleme-silme kapalıdır; başka sayfalardaki formüller ve
+  adlandırılmış aralıklar kaydırılmaz; resim ve grafikler yerinde kalır. Paylaşılan formüller ilk düzenlemede tek
+  tek formüllere açılır (sonuç aynıdır).
+- **Yazma izni:** "Üzerine yaz" yalnızca dosya Dosya Aç / klasör ile yazma izniyle açıldıysa veya uygulamanın kendi
+  kopyasıysa (ör. WhatsApp'tan açılan) mümkündür. WhatsApp'tan açılan dosyada üzerine yazmak WhatsApp'taki dosyayı
+  değil, uygulamadaki kopyayı değiştirir; değiştirilmiş hali "Yeni kopya" veya Paylaş ile gönderebilirsiniz.
 - XLSX’te **grafikler, resimler, şekiller, koşullu biçimlendirme, açıklamalar ve köprüler** gösterilmez; grafik sayfaları “görüntülenemiyor” mesajıyla listelenir.
 - Formüller **yeniden hesaplanmaz**; dosyayı kaydeden programın sakladığı son değer gösterilir. Bazı araçlar (ör. kod ile üretilen dosyalar) önbellek değeri yazmazsa formül hücresi boş görünür.
 - Excel yazı tipleri yerine Android’in sistem yazı tipi kullanılır; sütun genişlikleri Excel ölçüsüne göre yaklaşık hesaplanır.
