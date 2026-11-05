@@ -1,0 +1,169 @@
+name: Ayaz Viewer
+
+# Android uygulamasını derler, birim testlerini çalıştırır, kurulabilir debug APK üretir
+# ve emülatörde (Android 13 ve Android 15) cihaz testlerini çalıştırır.
+on:
+  push:
+    paths:
+      - "AyazViewer/**"
+      - ".github/workflows/ayaz-viewer.yml"
+  pull_request:
+    paths:
+      - "AyazViewer/**"
+      - ".github/workflows/ayaz-viewer.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ayaz-viewer-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: AyazViewer
+
+jobs:
+  build:
+    name: Derleme, birim testleri ve APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Android SDK bileşenleri
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+
+      - name: XLSX motoru birim testleri
+        run: ./gradlew --no-daemon --stacktrace :xlsx:test
+
+      - name: Uygulama birim testleri
+        run: ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest
+
+      - name: Debug APK derle
+        run: ./gradlew --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Cihaz testlerini derle
+        run: ./gradlew --no-daemon --stacktrace :app:assembleDebugAndroidTest
+
+      - name: Release APK derle (imzasız, küçültülmüş)
+        run: ./gradlew --no-daemon --stacktrace :app:assembleRelease
+
+      - name: APK doğrulama (izinler, imza, boyut)
+        run: |
+          BT="$ANDROID_HOME/build-tools/36.0.0"
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          ls -la "$APK" app/build/outputs/apk/release/
+          "$BT/aapt2" dump badging "$APK" | grep -E "package:|sdkVersion|targetSdkVersion|application-label|uses-permission" | tee badging.txt
+          if grep -q "android.permission.INTERNET" badging.txt; then echo "HATA: INTERNET izni bulundu"; exit 1; fi
+          if grep -qE "READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE" badging.txt; then echo "HATA: geniş depolama izni"; exit 1; fi
+          "$BT/apksigner" verify --print-certs "$APK" | head -5
+          cp "$APK" AyazViewer-debug.apk
+          sha256sum AyazViewer-debug.apk | tee AyazViewer-debug.apk.sha256
+
+      - name: Lint raporu
+        if: always()
+        continue-on-error: true
+        run: ./gradlew --no-daemon :app:lintDebug
+
+      - name: APK yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: AyazViewer-debug-apk
+          path: |
+            AyazViewer/AyazViewer-debug.apk
+            AyazViewer/AyazViewer-debug.apk.sha256
+          if-no-files-found: error
+
+      - name: Test ve lint raporları
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-build
+          path: |
+            AyazViewer/xlsx/build/reports
+            AyazViewer/app/build/reports
+          if-no-files-found: ignore
+
+  device-tests:
+    name: Emülatör testleri (API ${{ matrix.api }})
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [33, 35]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: KVM erişimi
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Cihaz testleri
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          working-directory: AyazViewer
+          script: ./gradlew --no-daemon :app:connectedDebugAndroidTest
+
+      - name: Cihaz test raporları
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-device-api${{ matrix.api }}
+          path: AyazViewer/app/build/reports/androidTests
+          if-no-files-found: ignore
+
+  publish-apk:
+    name: APK'yı depoya ekle (testler geçtiyse)
+    needs: [build, device-tests]
+    if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'ccr-3f76ce3b-m7oq72')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: AyazViewer-debug-apk
+          path: AyazViewer
+      - name: Depoya işle
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f AyazViewer/AyazViewer-debug.apk AyazViewer/AyazViewer-debug.apk.sha256
+          if git diff --cached --quiet; then echo "APK değişmedi"; exit 0; fi
+          git commit -m "Update AyazViewer-debug.apk [skip ci]"
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git push origin "HEAD:$GITHUB_REF_NAME"
