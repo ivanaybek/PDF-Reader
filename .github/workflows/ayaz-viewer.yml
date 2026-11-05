@@ -143,7 +143,7 @@ jobs:
   publish-apk:
     name: APK'yı depoya ekle (testler geçtiyse)
     needs: [build, device-tests]
-    if: github.event_name == 'push' && github.ref_name == 'ccr-3f76ce3b-m7oq72'
+    if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'ccr-3f76ce3b-m7oq72')
     runs-on: ubuntu-latest
     permissions:
       contents: write
