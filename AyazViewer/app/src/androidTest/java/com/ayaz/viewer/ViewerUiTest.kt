@@ -16,6 +16,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.swipe
+import androidx.compose.ui.geometry.Offset
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ayaz.viewer.core.FileKind
@@ -197,6 +202,101 @@ class ViewerUiTest {
         }
         ActivityScenario.launch<ViewerActivity>(send).use {
             waitText("Dosya açılamadı")
+        }
+    }
+
+    @Test
+    fun xlsxEditCellAndOverwriteOriginal() {
+        val entry = TestFiles.seedRecent("simple.xlsx", "Düzenle Kaydet.xlsx", FileKind.XLSX)
+        ActivityScenario.launch<ViewerActivity>(ViewerActivity.intentFor(TestFiles.app, entry.id)).use {
+            waitDesc("Tablo: Satışlar")
+            // A2'yi aramayla seç
+            rule.onNodeWithContentDescription("Hücrelerde ara").performClick()
+            rule.onNode(hasSetTextAction()).performTextInput("Çay")
+            rule.onNode(hasSetTextAction()).performImeAction()
+            waitDesc("Seçili hücre A2")
+            rule.onNodeWithContentDescription("Aramayı kapat").performClick()
+            rule.onNodeWithContentDescription("Düzenle").performClick()
+            waitDesc("Düzenlenen hücre A2")
+            rule.onNodeWithContentDescription("Hücre değeri").performTextReplacement("Kahve ğüş")
+            rule.onNodeWithContentDescription("Değeri uygula").performClick()
+            waitDesc("Düzenlenen hücre A3") // uygulama sonrası alttaki hücreye geçer
+            rule.onNodeWithContentDescription("Kaydet").performClick()
+            waitText("Asıl dosyanın üzerine yaz")
+            rule.onNodeWithText("Asıl dosyanın üzerine yaz").performClick()
+            // Dosyanın kendisinde yeni değer var mı? (ekran açıkken bekle; kapanırsa kayıt iptal olabilir)
+            val file = File(android.net.Uri.parse(entry.uri).path!!)
+            val deadline = System.currentTimeMillis() + 15_000
+            var value = ""
+            while (System.currentTimeMillis() < deadline) {
+                value = try {
+                    com.ayaz.viewer.xlsx.XlsxReader(file, { android.util.Xml.newPullParser() }).use { r ->
+                        val wb = r.readWorkbook()
+                        com.ayaz.viewer.xlsx.CellFormatter(wb).text(r.readSheet(wb, 0), 1, 0)
+                    }
+                } catch (_: Exception) { "" }
+                if (value == "Kahve ğüş") break
+                Thread.sleep(200)
+            }
+            assertTrue("kaydedilen değer: $value", value == "Kahve ğüş")
+        }
+    }
+
+    @Test
+    fun xlsxUnsavedChangesWarning() {
+        val entry = TestFiles.seedRecent("simple.xlsx", "Uyarı.xlsx", FileKind.XLSX)
+        ActivityScenario.launch<ViewerActivity>(ViewerActivity.intentFor(TestFiles.app, entry.id)).use {
+            waitDesc("Tablo: Satışlar")
+            rule.onNodeWithContentDescription("Düzenle").performClick()
+            rule.onNodeWithContentDescription("Satır ve sütun işlemleri").assertExists()
+            // hücre seçmeden önce: dokunma ile B2 seçilir
+            rule.onNodeWithContentDescription("Tablo: Satışlar").performTouchInput { click(Offset(width * 0.35f, height * 0.06f)) }
+            rule.waitUntil(10_000) {
+                rule.onAllNodesWithContentDescription("Düzenlenen hücre yok").fetchSemanticsNodes().isEmpty()
+            }
+            rule.onNodeWithContentDescription("Satır ve sütun işlemleri").performClick()
+            rule.onNodeWithText("Üstüne satır ekle").performClick()
+            rule.waitUntil(15_000) {
+                try {
+                    rule.onNodeWithContentDescription("Geri al").assertIsEnabled(); true
+                } catch (_: AssertionError) {
+                    false
+                }
+            }
+            rule.onNodeWithContentDescription("Geri").performClick()
+            waitText("Kaydedilmemiş değişiklikler")
+            rule.onNodeWithText("Kaydetmeden çık").performClick()
+        }
+    }
+
+    @Test
+    fun pdfDrawAndSave() {
+        val entry = TestFiles.seedRecent("single_page.pdf", "Çizim Kaydet.pdf", FileKind.PDF)
+        ActivityScenario.launch<ViewerActivity>(ViewerActivity.intentFor(TestFiles.app, entry.id)).use {
+            waitDesc("Sayfa 1 / 1")
+            rule.onNodeWithContentDescription("Düzenle").performClick()
+            rule.onNodeWithContentDescription("Araç: Kalem").assertExists()
+            rule.onNodeWithContentDescription("Renk 2").performClick()
+            rule.onNodeWithText("Kalın").performClick()
+            rule.onNodeWithContentDescription("Sayfa 1").performTouchInput {
+                swipe(Offset(width * 0.2f, height * 0.5f), Offset(width * 0.8f, height * 0.5f), durationMillis = 400)
+            }
+            rule.waitForIdle()
+            rule.onNodeWithContentDescription("Kaydet").performClick()
+            waitText("Asıl dosyanın üzerine yaz")
+            rule.onNodeWithText("Asıl dosyanın üzerine yaz").performClick()
+            val file = File(android.net.Uri.parse(entry.uri).path!!)
+            val deadline = System.currentTimeMillis() + 20_000
+            var count = 0
+            while (System.currentTimeMillis() < deadline) {
+                count = try {
+                    com.tom_roush.pdfbox.pdmodel.PDDocument.load(file).use { it.getPage(0).annotations.count { a -> a.subtype == "Ink" } }
+                } catch (_: Exception) { 0 }
+                if (count > 0) break
+                Thread.sleep(300)
+            }
+            assertTrue("kaydedilen PDF'te çizim notu olmalı ($count)", count == 1)
+            waitDesc("Sayfa 1 / 1", 30_000)
         }
     }
 }
