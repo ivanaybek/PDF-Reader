@@ -181,11 +181,12 @@ fun PdfViewerScreen(
     onShare: () -> Unit,
     onPageChanged: (Int) -> Unit,
     edit: PdfEditActions,
+    startInEdit: Boolean = false,
 ) {
     val extra = LocalAyazColors.current
     val es = edit.state
-    var editing by rememberSaveable { mutableStateOf(false) }
-    var tool by rememberSaveable { mutableStateOf(PdfTool.PEN) }
+    var editing by rememberSaveable { mutableStateOf(startInEdit) }
+    var tool by rememberSaveable { mutableStateOf(if (startInEdit) PdfTool.TEXT else PdfTool.PEN) }
     var penColor by rememberSaveable { mutableIntStateOf(PEN_COLORS[0]) }
     var sizeIndex by rememberSaveable { mutableIntStateOf(1) }
     var textTarget by remember { mutableStateOf<Pair<Int, Offset>?>(null) }

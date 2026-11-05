@@ -80,12 +80,16 @@ class MainActions(
     val share: (RecentFile) -> Unit,
     val remove: (RecentFile) -> Unit,
     val goTo: (MainTab) -> Unit,
+    val create: () -> Unit,
 )
 
 @Composable
-fun MainScreen(vm: MainViewModel, openViewer: (String) -> Unit) {
+fun MainScreen(vm: MainViewModel, openViewer: (String, Boolean) -> Unit) {
     var tab by rememberSaveable { mutableStateOf(MainTab.HOME) }
     var shareTarget by remember { mutableStateOf<RecentFile?>(null) }
+    var createOpen by remember { mutableStateOf(false) }
+    var composeOpen by remember { mutableStateOf(false) }
+    var confirmRemove by remember { mutableStateOf<RecentFile?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val recents by vm.recents.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
@@ -98,7 +102,7 @@ fun MainScreen(vm: MainViewModel, openViewer: (String) -> Unit) {
     LaunchedEffect(Unit) {
         vm.events.collect { e ->
             when (e) {
-                is MainEvent.OpenViewer -> openViewer(e.id)
+                is MainEvent.OpenViewer -> openViewer(e.id, e.edit)
                 is MainEvent.Message -> snackbar.showSnackbar(e.text)
             }
         }
@@ -128,8 +132,9 @@ fun MainScreen(vm: MainViewModel, openViewer: (String) -> Unit) {
             openUri = vm::openUri,
             openRecent = vm::openRecent,
             share = { shareTarget = it },
-            remove = vm::remove,
+            remove = { f -> if (f.created) confirmRemove = f else vm.remove(f) },
             goTo = { tab = it },
+            create = { createOpen = true },
         )
     }
 
@@ -190,4 +195,36 @@ fun MainScreen(vm: MainViewModel, openViewer: (String) -> Unit) {
     }
 
     shareTarget?.let { f -> ShareSheet(file = f, onDismiss = { shareTarget = null }) }
+    if (createOpen) {
+        CreateSheet(
+            onDismiss = { createOpen = false },
+            onSpreadsheet = { createOpen = false; vm.createSpreadsheet() },
+            onTextPdf = { createOpen = false; composeOpen = true },
+            onBlankPdf = { pages -> createOpen = false; vm.createBlankPdf(pages) },
+        )
+    }
+    if (composeOpen) {
+        TextPdfComposer(
+            onDismiss = { composeOpen = false },
+            onCreate = { title, body, size -> composeOpen = false; vm.createTextPdf(title, body, size) },
+        )
+    }
+    confirmRemove?.let { f ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmRemove = null },
+            title = { Text("Belge silinsin mi?") },
+            text = {
+                Text(
+                    "\"${f.name}\" Ayaz Viewer içinde oluşturuldu ve yalnızca uygulamada kayıtlı. Listeden kaldırırsanız " +
+                        "kalıcı olarak silinir. Saklamak için önce açıp \"Yeni kopya olarak kaydet\" ile telefona kaydedin.",
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { confirmRemove = null; vm.remove(f) }) { Text("Sil") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { confirmRemove = null }) { Text("Vazgeç") }
+            },
+        )
+    }
 }

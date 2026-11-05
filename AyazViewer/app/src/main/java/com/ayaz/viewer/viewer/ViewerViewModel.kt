@@ -49,9 +49,14 @@ class ViewerViewModel(application: Application) : AndroidViewModel(application) 
     val settings = app.settings.settings
 
     /** Etkinlik ilk oluşturulduğunda bir kez çağrılır; döndürmede ViewModel korunur. */
+    /** Yeni oluşturulan belgeler doğrudan düzenleme kipinde açılır. */
+    var startInEdit = false
+        private set
+
     fun handle(intent: Intent) {
         if (handled) return
         handled = true
+        startInEdit = intent.getBooleanExtra(EXTRA_START_EDIT, false)
         viewModelScope.launch {
             try {
                 val entry = resolve(intent)
@@ -318,5 +323,6 @@ class ViewerViewModel(application: Application) : AndroidViewModel(application) 
 
     companion object {
         const val EXTRA_RECENT_ID = "com.ayaz.viewer.extra.RECENT_ID"
+        const val EXTRA_START_EDIT = "com.ayaz.viewer.extra.START_EDIT"
     }
 }

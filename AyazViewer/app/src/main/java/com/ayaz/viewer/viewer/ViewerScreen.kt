@@ -104,6 +104,7 @@ fun ViewerScreen(vm: ViewerViewModel, onClose: () -> Unit) {
                 onShare = { shareFile = s.file },
                 onPageChanged = { vm.savePdfPage(s.file, it) },
                 edit = remember(s.file.id) { vm.pdfEditActions(s.file, requestSave) },
+                startInEdit = vm.startInEdit,
             )
             is ViewerState.Xlsx -> XlsxViewerScreen(
                 file = s.file,
@@ -115,6 +116,7 @@ fun ViewerScreen(vm: ViewerViewModel, onClose: () -> Unit) {
                 onShare = { shareFile = s.file },
                 onSheetChanged = { vm.saveSheet(s.file, it) },
                 onSaveRequest = requestSave,
+                startInEdit = vm.startInEdit,
             )
         }
     }

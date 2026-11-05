@@ -103,6 +103,7 @@ fun XlsxViewerScreen(
     onShare: () -> Unit,
     onSheetChanged: (Int) -> Unit,
     onSaveRequest: (SaveRequest) -> Unit,
+    startInEdit: Boolean = false,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -117,7 +118,7 @@ fun XlsxViewerScreen(
     var hitIndex by remember { mutableIntStateOf(-1) }
     var searching by remember { mutableStateOf(false) }
     var searchJob by remember { mutableStateOf<Job?>(null) }
-    var editing by rememberSaveable { mutableStateOf(false) }
+    var editing by rememberSaveable { mutableStateOf(startInEdit) }
     var confirmExit by remember { mutableStateOf(false) }
     val dirty by controller.dirty.collectAsStateWithLifecycle()
     val canUndo by controller.canUndo.collectAsStateWithLifecycle()
@@ -313,8 +314,11 @@ fun XlsxViewerScreen(
                         )
                     }
                 }
-                if (r.sheet.isEmpty) {
-                    EmptyState(AyazIcons.GridOn, "Bu sayfa boş", "\"${r.sheet.name}\" sayfasında gösterilecek veri yok.")
+                if (r.sheet.isEmpty && !editing) {
+                    EmptyState(
+                        AyazIcons.GridOn, "Bu sayfa boş",
+                        "\"${r.sheet.name}\" sayfasında gösterilecek veri yok. Veri eklemek için Düzenle'ye dokunun.",
+                    )
                 } else {
                     SheetGrid(
                         model = gridModel,

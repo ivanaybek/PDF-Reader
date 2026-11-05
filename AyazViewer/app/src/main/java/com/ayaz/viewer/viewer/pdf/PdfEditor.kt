@@ -255,7 +255,7 @@ object PdfEditor {
     }
 
     /** Yazı tipinde bulunmayan karakterleri (ör. emoji) "?" ile değiştirir; aksi halde PDFBox hata verir. */
-    private fun supported(font: PDFont, s: String): String {
+    internal fun supported(font: PDFont, s: String): String {
         val sb = StringBuilder(s.length)
         var i = 0
         while (i < s.length) {

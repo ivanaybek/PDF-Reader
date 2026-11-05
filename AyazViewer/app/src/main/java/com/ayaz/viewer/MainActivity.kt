@@ -20,7 +20,7 @@ class MainActivity : ComponentActivity() {
             val vm: MainViewModel = viewModel()
             val settings by vm.settings.collectAsStateWithLifecycle()
             AyazTheme(settings.themeMode) {
-                MainScreen(vm = vm, openViewer = { id -> startActivity(ViewerActivity.intentFor(this, id)) })
+                MainScreen(vm = vm, openViewer = { id, edit -> startActivity(ViewerActivity.intentFor(this, id, edit)) })
             }
         }
     }

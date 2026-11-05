@@ -12,6 +12,11 @@ import com.ayaz.viewer.data.FileOpener
 import com.ayaz.viewer.data.GrantedFolder
 import com.ayaz.viewer.data.RecentFile
 import com.ayaz.viewer.data.UserFacingException
+import com.ayaz.viewer.core.FileKind
+import com.ayaz.viewer.data.DocumentAccess
+import com.ayaz.viewer.viewer.pdf.PdfCreator
+import com.ayaz.viewer.xlsx.XlsxTemplates
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 sealed interface MainEvent {
-    data class OpenViewer(val id: String) : MainEvent
+    data class OpenViewer(val id: String, val edit: Boolean = false) : MainEvent
     data class Message(val text: String) : MainEvent
 }
 
@@ -67,7 +72,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun remove(entry: RecentFile) {
         viewModelScope.launch {
             app.recents.remove(entry.id)
-            _events.send(MainEvent.Message("\"${entry.name}\" listeden kaldırıldı. Dosyanın kendisi silinmedi."))
+            _events.send(
+                MainEvent.Message(
+                    if (entry.created) "\"${entry.name}\" silindi."
+                    else "\"${entry.name}\" listeden kaldırıldı. Dosyanın kendisi silinmedi.",
+                ),
+            )
             refreshStorage()
         }
     }
@@ -110,6 +120,53 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             refreshStorage()
             _events.send(MainEvent.Message("Temizlendi: ${Formatters.size(freed)}"))
         }
+    }
+
+    // ------------------------------------------------------------------ oluşturma
+
+    private fun stamp(): String = java.time.LocalDateTime.now()
+        .format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH.mm"))
+
+    /** Yeni belgeyi uygulama alanında oluşturur, son açılanlara ekler ve düzenleme kipinde açar. */
+    private fun create(name: String, kind: FileKind, write: (File) -> Unit) {
+        if (_busy.value) return
+        viewModelScope.launch {
+            _busy.value = true
+            try {
+                val id = DocumentAccess.stableId("created:" + System.nanoTime() + name)
+                val file = File(app.documents.importDir, "$id/${DocumentAccess.sanitizeName(name)}")
+                withContext(Dispatchers.IO) {
+                    file.parentFile?.mkdirs()
+                    write(file)
+                }
+                val entry = app.recents.upsert(
+                    RecentFile(
+                        id = id,
+                        uri = android.net.Uri.fromFile(file).toString(),
+                        name = file.name,
+                        kind = kind,
+                        size = file.length(),
+                        lastOpened = System.currentTimeMillis(),
+                        isPrivateCopy = true,
+                        created = true,
+                    ),
+                )
+                _events.send(MainEvent.OpenViewer(entry.id, edit = true))
+            } catch (e: Exception) {
+                _events.send(MainEvent.Message("Belge oluşturulamadı: ${ErrorMessages.generic(e)}"))
+            } finally {
+                _busy.value = false
+            }
+        }
+    }
+
+    fun createSpreadsheet() = create("Tablo ${stamp()}.xlsx", FileKind.XLSX) { XlsxTemplates.blankWorkbook(it, "Sayfa1") }
+
+    fun createBlankPdf(pages: Int) = create("Belge ${stamp()}.pdf", FileKind.PDF) { PdfCreator.blank(it, pages) }
+
+    fun createTextPdf(title: String, body: String, fontSize: Float) {
+        val base = title.trim().take(60).ifBlank { "Belge ${stamp()}" }
+        create("$base.pdf", FileKind.PDF) { PdfCreator.fromText(app, it, title, body, fontSize) }
     }
 
     fun postMessage(text: String) {

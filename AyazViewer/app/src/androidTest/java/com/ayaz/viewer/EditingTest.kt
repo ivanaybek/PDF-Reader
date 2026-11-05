@@ -167,4 +167,38 @@ class EditingTest {
         app.documents.overwrite(uri, replacement)
         assertArrayEquals(replacement.readBytes(), File(uri.path!!).readBytes())
     }
+
+    @Test
+    fun createdDocumentsAreValid() = runBlocking {
+        val pdf = out("yeni_metin.pdf")
+        val body = (1..120).joinToString("\n") { "Satır $it: Türkçe ğüşıöç İ metni ve uzun bir cümle ki sayfaya sığmayıp alt satıra kaysın." }
+        com.ayaz.viewer.viewer.pdf.PdfCreator.fromText(app, pdf, "Başlık ĞÜŞ", body, 12f)
+        val c = openPdf(pdf)
+        try {
+            assertTrue("uzun metin birden çok sayfa olmalı (${c.pageCount})", c.pageCount >= 3)
+        } finally {
+            c.close()
+        }
+        PDDocument.load(pdf).use { doc ->
+            val text = com.tom_roush.pdfbox.text.PDFTextStripper().getText(doc)
+            assertTrue("metin aranabilir olmalı", text.contains("Başlık ĞÜŞ") && text.contains("Satır 120"))
+        }
+        val blank = out("bos.pdf")
+        com.ayaz.viewer.viewer.pdf.PdfCreator.blank(blank, 3)
+        val c2 = openPdf(blank)
+        try { assertEquals(3, c2.pageCount) } finally { c2.close() }
+
+        val xlsx = out("yeni.xlsx")
+        com.ayaz.viewer.xlsx.XlsxTemplates.blankWorkbook(xlsx)
+        val x = XlsxController.open(xlsx, false, FormatLocale.TURKISH, app.documents.editDir)
+        try {
+            withContext(Dispatchers.Main) { x.select(0) }
+            assertTrue(ready(x, 0).sheet.isEmpty)
+            assertNull(withContext(Dispatchers.Main) { x.applyEdit(SheetEdit.SetCell(0, 0, CellInput.Text("İlk hücre"))) })
+            val r = ready(x, 0)
+            assertEquals("İlk hücre", r.formatter.text(r.sheet, 0, 0))
+        } finally {
+            x.close()
+        }
+    }
 }

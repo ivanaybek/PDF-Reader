@@ -15,6 +15,8 @@ data class RecentFile(
     val lastPage: Int = 0,
     val lastSheet: Int = 0,
     val isPrivateCopy: Boolean = false,
+    /** Uygulama içinde oluşturulmuş belge (tek kopyası uygulamada). */
+    val created: Boolean = false,
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("id", id)
@@ -26,6 +28,7 @@ data class RecentFile(
         .put("lastPage", lastPage)
         .put("lastSheet", lastSheet)
         .put("isPrivateCopy", isPrivateCopy)
+        .put("created", created)
 
     companion object {
         fun fromJson(o: JSONObject): RecentFile? = try {
@@ -39,6 +42,7 @@ data class RecentFile(
                 lastPage = o.optInt("lastPage", 0),
                 lastSheet = o.optInt("lastSheet", 0),
                 isPrivateCopy = o.optBoolean("isPrivateCopy", false),
+                created = o.optBoolean("created", false),
             )
         } catch (_: Exception) {
             null

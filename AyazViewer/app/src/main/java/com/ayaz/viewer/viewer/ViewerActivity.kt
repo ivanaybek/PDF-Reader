@@ -31,7 +31,9 @@ class ViewerActivity : ComponentActivity() {
     }
 
     companion object {
-        fun intentFor(context: Context, recentId: String): Intent =
-            Intent(context, ViewerActivity::class.java).putExtra(ViewerViewModel.EXTRA_RECENT_ID, recentId)
+        fun intentFor(context: Context, recentId: String, edit: Boolean = false): Intent =
+            Intent(context, ViewerActivity::class.java)
+                .putExtra(ViewerViewModel.EXTRA_RECENT_ID, recentId)
+                .putExtra(ViewerViewModel.EXTRA_START_EDIT, edit)
     }
 }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -54,6 +55,22 @@ fun HomeScreen(recents: List<RecentFile>, actions: MainActions) {
     ) {
         item { HomeHeader() }
         item { OpenFileHero(onClick = { actions.pick(null, null) }) }
+        item {
+            AyazCard(Modifier.fillMaxWidth().semantics { contentDescription = "Oluştur" }, onClick = actions.create) {
+                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    com.ayaz.viewer.ui.components.IconBadge(androidx.compose.material.icons.Icons.Filled.Add, MaterialTheme.colorScheme.primary)
+                    SpacerW(12)
+                    Column(Modifier.weight(1f)) {
+                        Text("Oluştur", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "Yeni Excel tablosu veya PDF belgesi",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 QuickTile(Modifier.weight(1f), FileKind.PDF, "PDF aç", "Belgeler") { actions.pick(FileKind.PDF, null) }
