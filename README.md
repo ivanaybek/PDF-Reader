@@ -1,11 +1,6 @@
-# Search-Movie
+# PDF Reader
 
-Bu depoda iki proje bulunur:
-
-| Klasör / dosya | İçerik |
-|---|---|
 | [`AyazViewer/`](AyazViewer/) | **Ayaz Viewer** – çevrimdışı PDF ve Excel (XLSX) görüntüleyici/düzenleyici Android uygulaması (Kotlin, Jetpack Compose) |
-| `index.html`, `script.js`, `style.css` | Film arama web sayfası (OMDb API) |
 
 ## Ayaz Viewer – hızlı bağlantılar
 
