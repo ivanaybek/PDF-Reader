@@ -1,6 +1,6 @@
 # Ayaz Viewer – Test Raporu
 
-Tarih: 4 Kasım 2026 • Sürüm: 1.0.0 • Derleme: GitHub Actions, “Ayaz Viewer” iş akışı, çalıştırma **#5** (commit `660ea43`)
+Tarih: 5 Kasım 2026 • Sürüm: 1.0.0 (düzenleme ve oluşturma eklendi) • Derleme: GitHub Actions, “Ayaz Viewer” iş akışı, commit `fe9845b`
 
 > Bu rapordaki sonuçların tamamı gerçekten çalıştırılmış otomatik testlerdir. Elle (insan eliyle) gerçek bir
 > telefonda yapılmış test **yoktur**; bu tür testler aşağıda “Test edilemeyenler” bölümünde ayrıca listelenmiştir.
@@ -22,7 +22,7 @@ GitHub Actions üzerinde yapıldı.
 
 ## 2. JVM birim testleri
 
-**XLSX motoru – 23 test, 23 başarılı** (yerelde ve GitHub Actions’ta)
+**XLSX motoru – 42 test, 42 başarılı** (yerelde ve GitHub Actions’ta; 23 okuma + 19 düzenleme/oluşturma)
 
 - Hücre referansları (A1, AB12, $C$3, XFD), aralıklar
 - 60+ sayı/tarih biçimi senaryosu: Genel, binlik ayırıcı, ondalık, yüzde, bilimsel, kesir, para birimi,
@@ -36,6 +36,13 @@ GitHub Actions üzerinde yapıldı.
 - Büyük sayfa: 100.000 satır × 12 sütun (6,9 MB) yaklaşık 1,1 saniyede okundu
 - Hücre sınırı aşımında güvenli kesme, iptal
 
+- **Düzenleme:** hücreye metin/sayı/mantıksal/formül yazma, yeni hücre ve yeni satır, temizleme, biçimin korunması,
+  ad alanı önekli dosya, boş sayfa; satır/sütun ekleme ve silmede formül kaydırma (`#REF!` dahil), birleşik hücre,
+  sütun genişliği, koşullu biçim (sol üst hücreye göre formül), veri doğrulama, köprü; paylaşılan formüllerin açılması;
+  calcChain kaldırma ve `fullCalcOnLoad`; tablo içeren sayfada satır/sütun işleminin reddi; kaynak dosyanın hiç
+  değişmemesi; art arda 6 işlem; Türkçe sayı/tarih girişi ayrıştırma; yeni boş çalışma kitabı.
+- Düzenlenen ve oluşturulan 13 dosya ayrıca **openpyxl** ile açılarak doğrulandı (Excel uyumlu paket yapısı).
+
 **Uygulama – 6 test, 6 başarılı**: içerik imzasıyla dosya türü tespiti, Türkçe dosya adı temizleme, uzantı
 tamamlama, kararlı kimlikler, Türkçe boyut ve tarih biçimleri.
 
@@ -43,8 +50,8 @@ tamamlama, kararlı kimlikler, Türkçe boyut ve tarih biçimleri.
 
 | Cihaz | Sonuç |
 |---|---|
-| Android 13 (API 33, Pixel 6 profili) | ✅ Tüm testler başarılı; PDF metin araması testi **atlandı** (Android 13’te `PdfRenderer` arama API’si yok) |
-| Android 15 (API 35, Pixel 6 profili) | ✅ **34 / 34 başarılı**, atlanan yok (PDF metin araması dahil) |
+| Android 13 (API 33, Pixel 6 profili) | ✅ 42 başarılı, 0 başarısız; PDF metin araması testi **atlandı** (Android 13’te `PdfRenderer` arama API’si yok) |
+| Android 15 (API 35, Pixel 6 profili) | ✅ **43 / 43 başarılı**, atlanan yok (PDF metin araması dahil) |
 
 Kapsanan senaryolar:
 
@@ -67,9 +74,14 @@ Kapsanan senaryolar:
 | Uygulama kapatılıp açılınca son dosyalar | `RecentFilesPersistenceTest.recentsSurviveRestart`, `MainUiTest.recentsSurviveActivityRecreation`, bozuk liste dosyası testi |
 | Ekran döndürme | `ViewerUiTest.pdfOpensRotatesAndShares`, `ViewerUiTest.xlsxOpensSearchesAndRotates` |
 | Koyu ve açık tema | `MainUiTest.lightAndDarkTheme` (ekran görüntüsünden zemin parlaklığı ölçümü), `homeShowsOpenButtonAndNavigation` |
+| Excel düzenleme ve kaydetme | `ViewerUiTest.xlsxEditCellAndOverwriteOriginal` (arayüzden hücre değiştir → Kaydet → Üzerine yaz → dosyada yeni değer), `xlsxUnsavedChangesWarning` (satır ekle → Geri → uyarı), `EditingTest.xlsxEditUndoAndOriginalUntouched` (düzenle, satır ekle, iki kez geri al, asıl dosya değişmedi) |
+| PDF düzenleme ve kaydetme | `ViewerUiTest.pdfDrawAndSave` (kırmızı kalınla çiz → Kaydet → Üzerine yaz → kaydedilen dosyada çizim görünür), `EditingTest.inkAndTextAreWrittenAsAnnotationsAndRendered` (çizgi pikselleri, Türkçe metnin aranabilirliği, kaynak değişmedi), `rotateAndDeletePages`, `inkOnRotatedPageLandsWhereDrawn` (döndürülmüş sayfada çizimin doğru yerde olması) |
+| Oluştur | `EditingTest.createdDocumentsAreValid` (120 satırlık Türkçe metinden ≥3 sayfalık aranabilir PDF, 3 sayfalık boş PDF, yeni tabloya yazma) |
 | WhatsApp/Telegram paylaşımı | `ShareAndOpenTest` (yalnızca iki hedef, FileProvider URI, okuma izni, dosya adı/boyut/içerik bayt bayt aynı), uygulama yüklü değilken Türkçe uyarı (`MainUiTest.recentFilesListAndShareSheet`) |
 
 Geliştirme sırasında testlerin ortaya çıkarıp düzeltilen gerçek hatalar:
+- PDF işaretlemeleri ilk sürümde PDF notu olarak yazılıyordu; Android'in PdfRenderer'ı notları çizmediği için kaydedilen
+  çizimler uygulamada görünmüyordu → artık sayfa içeriğine çiziliyor.
 - Paylaşım niyetinde `ClipData.newUri(null, …)` WhatsApp/Telegram’a paylaşırken çökme oluştururdu → düzeltildi.
 - PDF’ye erişim izni kaldırıldığında yanlışlıkla “parola korumalı” mesajı gösterilirdi → düzeltildi.
 - Görüntüleyiciden hızlı çıkıldığında son sayfa kaydedilmiyordu → kapanışta da kaydediliyor.
@@ -81,6 +93,10 @@ Geliştirme sırasında testlerin ortaya çıkarıp düzeltilen gerçek hatalar:
 - **Gerçek WhatsApp/Telegram gönderimi**: Emülatörde bu uygulamalar yüklü olmadığından dosyanın sohbete gerçekten gönderilmesi denenemedi. Niyetin doğru pakete, doğru dosya ve izinle oluşturulduğu doğrulandı.
 - **Sistem dosya seçicisi ve “Klasör ekle”** ekranlarındaki dokunuşlar (Android’in kendi arayüzü) otomatik testte çalıştırılmadı; seçiciden gelen sonucu işleyen kod yolu ayrıca test edildi.
 - **İki parmakla yakınlaştırma ve sürükleme** hareketleri otomatik testte yapılmadı (yalnızca kod incelemesi). Çift dokunuşla yakınlaştırma da elle denenmedi.
+- **Düzenleme:** "Yeni kopya olarak kaydet" sistemin kaydetme ekranını kullandığı için otomatik testte çalıştırılmadı
+  (yazma kodu "Üzerine yaz" testleriyle doğrulandı). PDF'te iki parmakla kaydırma/yakınlaştırma sırasında çizim,
+  vurgulayıcı ve silgi araçları ile metin notu ekleme arayüzü otomatik testte denenmedi (kalemle çizim ve kaydetme
+  denendi). Düzenlenen XLSX dosyaları gerçek Microsoft Excel'de açılarak denenmedi (openpyxl ile doğrulandı).
 - Arayüzün görsel görünümü ekran görüntüsü olarak incelenmedi; yalnızca piksel ölçümleriyle (tema zemini, PDF içeriği, hücre dolgusu) doğrulandı.
 
 Telefonda ilk denemede önerilen kontrol listesi: `samples/` klasöründeki dosyaları İndirilenler’e kopyalayın;
