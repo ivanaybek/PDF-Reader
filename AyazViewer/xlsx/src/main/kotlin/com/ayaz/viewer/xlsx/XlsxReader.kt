@@ -188,6 +188,28 @@ class XlsxReader(
         }
     }
 
+    // ------------------------------------------------------------------ düzenleyici için paket erişimi
+
+    internal fun workbookPartPath(): String = officeDocumentPath()
+
+    internal fun entryFor(path: String): ZipEntry? = findEntry(path)
+
+    internal fun allEntries(): List<ZipEntry> {
+        val list = ArrayList<ZipEntry>()
+        val en = zip.entries()
+        while (en.hasMoreElements()) list.add(en.nextElement())
+        return list
+    }
+
+    internal fun openEntry(e: ZipEntry): InputStream = zip.getInputStream(e)
+
+    internal fun readEntryText(e: ZipEntry): String =
+        zip.getInputStream(e).use { String(it.readBytes(), Charsets.UTF_8).removePrefix("\uFEFF") }
+
+    internal fun newParser(): XmlPullParser = parserFactory().also {
+        try { it.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true) } catch (_: Exception) {}
+    }
+
     // ------------------------------------------------------------------ yardımcılar
 
     private class Rel(val target: String, val type: String)
@@ -325,6 +347,10 @@ internal class SheetParser(
     }
 
     private val localStrings = ArrayList<String>()
+    private val formulas = HashMap<Long, String>()
+    private val sharedMasters = HashMap<String, Triple<Int, Int, String>>()
+    private val sharedDependents = ArrayList<Triple<Int, Int, String>>()
+    private val pendingFormulaText = HashSet<Long>()
     private val builtRows = ArrayList<RowData>()
     private val builtRowIndex = IntArrayList()
     private val heightRows = IntArrayList()
@@ -472,6 +498,26 @@ internal class SheetParser(
                 widths[c] = if (spec.hidden) 0f else (spec.width ?: Float.NaN)
             }
         }
+        // Paylaşılan formüllerin bağımlı hücrelerine formül metni türet.
+        for ((r, c, si) in sharedDependents) {
+            val m = sharedMasters[si] ?: continue
+            formulas[(r.toLong() shl 32) or c.toLong()] = FormulaRefs.translate(m.third, r - m.first, c - m.second)
+        }
+        if (pendingFormulaText.isNotEmpty()) {
+            for (i in 0 until builtRows.size) {
+                val rowIdx = builtRowIndex[i]
+                val rd = builtRows[i]
+                for (k in 0 until rd.size) {
+                    val key = (rowIdx.toLong() shl 32) or rd.cols[k].toLong()
+                    if (key in pendingFormulaText) {
+                        val f = formulas[key] ?: continue
+                        rd.types[k] = CellType.LOCAL_STRING
+                        rd.values[k] = addLocal("=$f")
+                    }
+                }
+            }
+        }
+
         val validMerges = merges.filter { it.firstRow < rowCount && it.firstCol < colCount }
             .map { CellRange(it.firstRow, it.firstCol, minOf(it.lastRow, rowCount - 1), minOf(it.lastCol, colCount - 1)) }
             .sortedWith(compareBy({ it.firstRow }, { it.firstCol }))
@@ -493,6 +539,7 @@ internal class SheetParser(
             tabColor = tabColor,
             truncated = truncated,
             cellCount = cellCount,
+            formulas = formulas,
         )
     }
 
@@ -519,12 +566,20 @@ internal class SheetParser(
         }
         var vText: String? = null
         var inline: String? = null
+        var fText: String? = null
+        var fShared = false
+        var fSi: String? = null
         var depth = 1
         while (depth > 0) {
             when (p.next()) {
                 XmlPullParser.START_TAG -> when (Xml.name(p)) {
                     "v" -> vText = Xml.readText(p)
                     "is" -> inline = Xml.readRichText(p)
+                    "f" -> {
+                        fShared = Xml.attr(p, "t") == "shared"
+                        fSi = Xml.attr(p, "si")
+                        fText = Xml.readText(p)
+                    }
                     else -> depth++
                 }
                 XmlPullParser.END_TAG -> depth--
@@ -532,6 +587,15 @@ internal class SheetParser(
             }
         }
         if (col < 0 || col >= CellRef.MAX_COLS || row < 0) return col + 1
+
+        val key = (row.toLong() shl 32) or col.toLong()
+        if (!fText.isNullOrEmpty()) {
+            formulas[key] = fText!!
+            if (fShared && fSi != null) sharedMasters[fSi!!] = Triple(row, col, fText!!)
+        } else if (fShared && fSi != null) {
+            sharedDependents.add(Triple(row, col, fSi!!))
+        }
+        val hasFormula = fText != null || fShared
 
         var type = CellType.EMPTY
         var value = 0L
@@ -575,13 +639,20 @@ internal class SheetParser(
                 }
             }
         }
+        if (type == CellType.EMPTY && hasFormula && vText == null) {
+            // Önbellek değeri yazılmamış formül: hesaplanmadığından formülün kendisi gösterilir.
+            val text = fText?.takeIf { it.isNotEmpty() }
+            if (text != null) { type = CellType.LOCAL_STRING; value = addLocal("=$text") }
+            else pendingFormulaText.add(key)
+        }
 
         val styleVisible = s > 0 && s < workbook.visibleStyle.size && workbook.visibleStyle[s]
-        if (type == CellType.EMPTY && !styleVisible) return col + 1
+        val pending = key in pendingFormulaText
+        if (type == CellType.EMPTY && !styleVisible && !pending) return col + 1
 
         builder.add(col, type, if (s >= 0) s else 0, value)
         cellCount++
-        if (type != CellType.EMPTY) {
+        if (type != CellType.EMPTY || pending) {
             if (row > maxValueRow) maxValueRow = row
             if (col > maxValueCol) maxValueCol = col
         } else {

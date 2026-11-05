@@ -26,6 +26,8 @@ dependencies {
 
 tasks.test {
     maxHeapSize = "1g"
+    // İsteğe bağlı: düzenlenmiş dosyaları dış araçla doğrulamak için -Payaz.editOut=/klasör
+    providers.gradleProperty("ayaz.editOut").orNull?.let { systemProperty("ayaz.editOut", it) }
     testLogging {
         events("passed", "failed", "skipped")
         showStandardStreams = true

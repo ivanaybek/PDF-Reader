@@ -137,7 +137,12 @@ class SheetData internal constructor(
     /** Hücre sınırı aşıldığı için sayfanın yalnızca bir kısmı okunduysa true. */
     val truncated: Boolean,
     val cellCount: Int,
+    /** Hücre formülleri ((satır shl 32) or sütun → "=" olmadan formül metni). */
+    internal val formulas: Map<Long, String> = emptyMap(),
 ) {
+    /** Hücredeki formül ("=" olmadan) veya null. */
+    fun formulaAt(row: Int, col: Int): String? = formulas[(row.toLong() shl 32) or col.toLong()]
+
     fun row(index: Int): RowData? = if (index in 0 until rowCount) rows[index] else null
 
     fun rowHeightPt(index: Int): Float {

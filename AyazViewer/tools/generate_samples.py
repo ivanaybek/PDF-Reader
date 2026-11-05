@@ -186,6 +186,87 @@ def handcrafted_xlsx(path):
     })
 
 
+def formulas_xlsx(path):
+    """Düzenleme testleri için: formüller, paylaşılan formül, birleşik hücre, koşullu biçim,
+    veri doğrulama, köprü, sütun genişlikleri, calcChain ve ikinci sayfa."""
+    main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    ct = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>
+<Override PartName="/xl/calcChain.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml"/>
+</Types>"""
+    workbook = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="{main}" xmlns:r="{rel}">
+<sheets><sheet name="Formüller" sheetId="1" r:id="rId1"/><sheet name="Diğer Sayfa" sheetId="2" r:id="rId2"/></sheets>
+<calcPr calcId="191029"/>
+</workbook>"""
+    wb_rels = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="{rel}/worksheet" Target="worksheets/sheet1.xml"/>
+<Relationship Id="rId2" Type="{rel}/worksheet" Target="worksheets/sheet2.xml"/>
+<Relationship Id="rId3" Type="{rel}/styles" Target="styles.xml"/>
+<Relationship Id="rId4" Type="{rel}/sharedStrings" Target="sharedStrings.xml"/>
+<Relationship Id="rId5" Type="{rel}/calcChain" Target="calcChain.xml"/>
+</Relationships>"""
+    styles = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="{main}">
+<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>
+<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/></patternFill></fill></fills>
+<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="14" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>
+<dxfs count="1"><dxf><font><b/></font></dxf></dxfs>
+</styleSheet>"""
+    sst = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sst xmlns="{main}" count="1" uniqueCount="1"><si><t>Birleşik</t></si></sst>"""
+    sheet1 = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="{main}" xmlns:r="{rel}">
+<dimension ref="A1:F5"/>
+<sheetViews><sheetView workbookViewId="0"/></sheetViews>
+<sheetFormatPr defaultRowHeight="15"/>
+<cols><col min="1" max="1" width="12" customWidth="1"/><col min="3" max="4" width="20" customWidth="1"/></cols>
+<sheetData>
+<row r="1" spans="1:6"><c r="A1" s="1"><v>1</v></c><c r="B1"><f>SUM(A1:A5)</f><v>15</v></c><c r="C1"><f t="shared" ref="C1:C5" si="0">A1*2</f><v>2</v></c><c r="D1" t="s"><v>0</v></c></row>
+<row r="2"><c r="A2"><v>2</v></c><c r="C2"><f t="shared" si="0"/><v>4</v></c></row>
+<row r="3"><c r="A3"><v>3</v></c><c r="C3"><f t="shared" si="0"/><v>6</v></c><c r="E3" s="2"><v>45356</v></c></row>
+<row r="4"><c r="A4"><v>4</v></c><c r="C4"><f t="shared" si="0"/><v>8</v></c></row>
+<row r="5"><c r="A5"><v>5</v></c><c r="C5"><f t="shared" si="0"/><v>10</v></c><c r="F5"><f>$A$1+'Diğer Sayfa'!A1+"A1"</f><v>2</v></c></row>
+</sheetData>
+<mergeCells count="1"><mergeCell ref="D1:E2"/></mergeCells>
+<conditionalFormatting sqref="A1:A5"><cfRule type="expression" dxfId="0" priority="1"><formula>A1&gt;3</formula></cfRule></conditionalFormatting>
+<dataValidations count="1"><dataValidation type="whole" allowBlank="1" sqref="F1:F10"><formula1>0</formula1><formula2>100</formula2></dataValidation></dataValidations>
+<hyperlinks><hyperlink ref="D1" r:id="rId9"/></hyperlinks>
+<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>
+</worksheet>"""
+    sheet1_rels = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId9" Type="{rel}/hyperlink" Target="https://example.com/" TargetMode="External"/>
+</Relationships>"""
+    sheet2 = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="{main}"><sheetData><row r="1"><c r="A1"><v>1</v></c></row></sheetData></worksheet>"""
+    calc = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<calcChain xmlns="{main}"><c r="B1" i="1"/><c r="C1"/><c r="C2"/><c r="C3"/><c r="C4"/><c r="C5"/><c r="F5"/></calcChain>"""
+    write_zip(path, {
+        "[Content_Types].xml": ct,
+        "_rels/.rels": ROOT_RELS,
+        "xl/workbook.xml": workbook,
+        "xl/_rels/workbook.xml.rels": wb_rels,
+        "xl/styles.xml": styles,
+        "xl/sharedStrings.xml": sst,
+        "xl/worksheets/sheet1.xml": sheet1,
+        "xl/worksheets/_rels/sheet1.xml.rels": sheet1_rels,
+        "xl/worksheets/sheet2.xml": sheet2,
+        "xl/calcChain.xml": calc,
+    })
+
+
 def write_bad_files(directory):
     with open(os.path.join(directory, "empty.xlsx"), "wb"):
         pass
@@ -290,9 +371,10 @@ def main():
     simple_xlsx(os.path.join(JVM_RES, "simple.xlsx"))
     multi_sheet_xlsx(os.path.join(JVM_RES, "multi_sheet.xlsx"))
     handcrafted_xlsx(os.path.join(JVM_RES, "handcrafted.xlsx"))
+    formulas_xlsx(os.path.join(JVM_RES, "formulas.xlsx"))
     write_bad_files(JVM_RES)
 
-    for name in ("simple.xlsx", "multi_sheet.xlsx", "handcrafted.xlsx", "corrupt.xlsx", "empty.xlsx",
+    for name in ("simple.xlsx", "multi_sheet.xlsx", "handcrafted.xlsx", "formulas.xlsx", "corrupt.xlsx", "empty.xlsx",
                  "legacy.xls", "not_xlsx.xlsx"):
         shutil.copy(os.path.join(JVM_RES, name), os.path.join(ANDROID_ASSETS, name))
 
