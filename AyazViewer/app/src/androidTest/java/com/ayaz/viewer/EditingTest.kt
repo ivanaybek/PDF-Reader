@@ -110,7 +110,7 @@ class EditingTest {
         PdfEditor.write(app, rotated, marked, listOf(stroke), null)
         val c = openPdf(marked)
         try {
-            val bmp = c.render(0, 842) // 1 piksel / nokta (yatay sayfa genişliği 842)
+            val bmp = c.render(0, 842)!! // 1 piksel / nokta (yatay sayfa genişliği 842)
             var red = 0
             for (x in 40..160 step 2) for (y in 52..68) {
                 val p = bmp.getPixel(x, y)
