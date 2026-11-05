@@ -1,6 +1,22 @@
 package com.ayaz.viewer.viewer.pdf
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.tween
@@ -164,8 +180,19 @@ fun PdfViewerScreen(
     onBack: () -> Unit,
     onShare: () -> Unit,
     onPageChanged: (Int) -> Unit,
+    edit: PdfEditActions,
 ) {
     val extra = LocalAyazColors.current
+    val es = edit.state
+    var editing by rememberSaveable { mutableStateOf(false) }
+    var tool by rememberSaveable { mutableStateOf(PdfTool.PEN) }
+    var penColor by rememberSaveable { mutableIntStateOf(PEN_COLORS[0]) }
+    var sizeIndex by rememberSaveable { mutableIntStateOf(1) }
+    var textTarget by remember { mutableStateOf<Pair<Int, Offset>?>(null) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var confirmExit by remember { mutableStateOf(false) }
+    val guardedBack: () -> Unit = { if (es.dirty) confirmExit = true else onBack() }
+    BackHandler(enabled = es.dirty) { confirmExit = true }
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
@@ -251,6 +278,10 @@ fun PdfViewerScreen(
         }
     }
 
+    LaunchedEffect(es.message) {
+        es.message?.let { snackbar.showSnackbar(it); es.message = null }
+    }
+
     fun gotoHit(delta: Int) {
         if (hits.isEmpty()) return
         hitIndex = (hitIndex + delta + hits.size) % hits.size
@@ -291,9 +322,16 @@ fun PdfViewerScreen(
                             )
                         }
                     },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri") } },
+                    navigationIcon = { IconButton(onClick = guardedBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri") } },
                     actions = {
+                        if (editing) {
+                            IconButton(onClick = edit.undo, enabled = es.canUndo && !es.busy) { Icon(AyazIcons.Undo, "Geri al") }
+                            IconButton(onClick = edit.save, enabled = es.dirty && !es.busy) { Icon(AyazIcons.Save, "Kaydet") }
+                            IconButton(onClick = { editing = false }) { Icon(Icons.Filled.Check, "Düzenlemeyi bitir") }
+                            return@TopAppBar
+                        }
                         IconButton(onClick = { searchOpen = true }) { Icon(Icons.Filled.Search, "Belgede ara") }
+                        IconButton(onClick = { editing = true; zoom.reset() }) { Icon(Icons.Filled.Edit, "Düzenle") }
                         IconButton(onClick = onShare) { Icon(Icons.Filled.Share, "Paylaş") }
                         Box {
                             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Diğer") }
@@ -314,9 +352,41 @@ fun PdfViewerScreen(
                 )
             }
         },
+        bottomBar = {
+            if (editing) {
+                PdfEditToolbar(
+                    tool = tool,
+                    onTool = { tool = it; if (it == PdfTool.HIGHLIGHTER && penColor == PEN_COLORS[0]) penColor = PEN_COLORS[4] },
+                    color = penColor,
+                    onColor = { penColor = it },
+                    sizeIndex = sizeIndex,
+                    onSize = { sizeIndex = it },
+                    busy = es.busy,
+                    onRotate = { edit.pageOp(PageOp.Rotate(currentPage, 90)) },
+                    onDeletePage = { confirmDelete = true },
+                    canDelete = controller.pageCount > 1,
+                )
+            }
+        },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            ZoomablePages(controller, listState, zoom, sizesVersion, hits, hitIndex)
+            ZoomablePages(
+                controller, listState, zoom, sizesVersion, hits, hitIndex,
+                editing = editing,
+                tool = tool,
+                marks = es.marks,
+                strokeColor = penColor,
+                strokeWidth = if (tool == PdfTool.HIGHLIGHTER) HIGHLIGHT_WIDTHS[sizeIndex] else PEN_WIDTHS[sizeIndex],
+                onStroke = { edit.add(it) },
+                onTapPage = { page, pt ->
+                    when (tool) {
+                        PdfTool.TEXT -> textTarget = page to pt
+                        PdfTool.ERASER -> es.marks.lastOrNull { it.page == page && hitsMark(it, pt) }?.let { edit.remove(it) }
+                        else -> {}
+                    }
+                },
+            )
+            if (es.busy) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
             val indicatorAlpha by animateFloatAsState(if (indicatorVisible || searchOpen) 1f else 0f, tween(300), label = "indicator")
             Box(
                 Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 20.dp)
@@ -333,6 +403,34 @@ fun PdfViewerScreen(
                 }
             }
         }
+    }
+
+    textTarget?.let { (page, pt) ->
+        TextNoteDialog(
+            onDismiss = { textTarget = null },
+            onConfirm = { text ->
+                textTarget = null
+                if (text.isNotBlank()) edit.add(TextMark(page, pt.x, pt.y, text, penColor, TEXT_SIZES[sizeIndex]))
+            },
+        )
+    }
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Sayfa ${currentPage + 1} silinsin mi?") },
+            text = { Text("Sayfa belgeden kaldırılır. Kaydetmeden önce \"Geri al\" ile geri getirebilirsiniz.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; edit.pageOp(PageOp.Delete(currentPage)) }) { Text("Sil") }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Vazgeç") } },
+        )
+    }
+    if (confirmExit) {
+        com.ayaz.viewer.viewer.UnsavedChangesDialog(
+            onSave = { confirmExit = false; edit.save() },
+            onDiscard = { confirmExit = false; onBack() },
+            onDismiss = { confirmExit = false },
+        )
     }
 
     if (showGoTo) {
@@ -357,15 +455,49 @@ private fun ZoomablePages(
     sizesVersion: Int,
     hits: List<PdfSearchHit>,
     hitIndex: Int,
+    editing: Boolean = false,
+    tool: PdfTool = PdfTool.PEN,
+    marks: List<PdfMark> = emptyList(),
+    strokeColor: Int = 0,
+    strokeWidth: Float = 2f,
+    onStroke: (InkMark) -> Unit = {},
+    onTapPage: (Int, Offset) -> Unit = { _, _ -> },
 ) {
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
+    val livePoints = remember { mutableStateListOf<Offset>() }
+    var livePage by remember { mutableIntStateOf(-1) }
+    val color by rememberUpdatedState(strokeColor)
+    val width by rememberUpdatedState(strokeWidth)
+    val strokeCallback by rememberUpdatedState(onStroke)
+    val tapCallback by rememberUpdatedState(onTapPage)
     var flingJob by remember { mutableStateOf<Job?>(null) }
     var settleJob by remember { mutableStateOf<Job?>(null) }
     var viewport by remember { mutableStateOf(IntSize.Zero) }
     val sidePadding = 8.dp
     val pageWidthPx = with(density) { (viewport.width - 2 * sidePadding.roundToPx()).coerceAtLeast(1) }
-    val listScrollEnabled by remember { derivedStateOf { zoom.scale <= 1f } }
+    val listScrollEnabled by remember(editing) { derivedStateOf { zoom.scale <= 1f && !editing } }
+    val sidePx = with(density) { sidePadding.toPx() }
+
+    /** Ekran noktası → (sayfa, sayfa noktası). [onlyPage] verilirse o sayfaya göre (sınırlandırılmış). */
+    fun locate(pos: Offset, onlyPage: Int = -1): Pair<Int, Offset>? {
+        val info = listState.layoutInfo
+        val cy = (pos.y - zoom.ty) / zoom.scale
+        val cx = (pos.x - zoom.tx) / zoom.scale
+        val item = if (onlyPage >= 0) info.visibleItemsInfo.firstOrNull { it.index == onlyPage }
+        else info.visibleItemsInfo.firstOrNull { cy >= it.offset && cy < it.offset + it.size }
+        item ?: return null
+        val localX = cx - sidePx
+        val localY = cy - item.offset
+        val pw = (viewport.width - 2 * sidePx).coerceAtLeast(1f)
+        if (onlyPage < 0 && (localX < 0 || localX > pw)) return null
+        val ptsPerPx = controller.pageWidthPoints(item.index) / pw
+        val maxY = item.size * ptsPerPx
+        return item.index to Offset(
+            (localX * ptsPerPx).coerceIn(0f, pw * ptsPerPx),
+            (localY * ptsPerPx).coerceIn(0f, maxY),
+        )
+    }
 
     fun settle() {
         settleJob?.cancel()
@@ -397,18 +529,41 @@ private fun ZoomablePages(
                     zoom.reset()
                 }
             }
-            .pointerInput(listState) {
+            .pointerInput(listState, editing, tool, controller) {
                 awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     flingJob?.cancel()
                     val tracker = VelocityTracker()
                     var panning = false
                     var multi = false
                     var slop = 0f
+                    val drawing = editing && (tool == PdfTool.PEN || tool == PdfTool.HIGHLIGHTER)
+                    var strokePage = -1
+                    if (drawing) {
+                        locate(down.position)?.let { (pg, pt) ->
+                            strokePage = pg
+                            livePage = pg
+                            livePoints.clear()
+                            livePoints.add(pt)
+                            down.consume()
+                        }
+                    }
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val pressed = event.changes.filter { it.pressed }
                         if (pressed.isEmpty()) break
+                        if (pressed.size >= 2 && strokePage >= 0) {
+                            // ikinci parmak: çizimden vazgeç, kaydır/yakınlaştır
+                            strokePage = -1
+                            livePage = -1
+                            livePoints.clear()
+                        }
+                        if (strokePage >= 0) {
+                            val change = pressed.first()
+                            locate(change.position, strokePage)?.let { (_, pt) -> livePoints.add(pt) }
+                            change.consume()
+                            continue
+                        }
                         if (pressed.size >= 2) {
                             multi = true
                             val factor = event.calculateZoom()
@@ -417,7 +572,7 @@ private fun ZoomablePages(
                             if (factor != 1f) zoom.zoomBy(factor, centroid, listState)
                             if (zoom.scale > 1f) zoom.panBy(pan.x, pan.y, listState)
                             event.changes.forEach { it.consume() }
-                        } else if (zoom.scale > 1f) {
+                        } else if (zoom.scale > 1f || editing) {
                             val change = pressed.first()
                             val delta = change.positionChange()
                             if (!panning) {
@@ -431,8 +586,19 @@ private fun ZoomablePages(
                             }
                         }
                     }
+                    if (strokePage >= 0) {
+                        if (livePoints.isNotEmpty()) {
+                            strokeCallback(
+                                InkMark(strokePage, livePoints.toList(), color, width, tool == PdfTool.HIGHLIGHTER),
+                            )
+                        }
+                        livePage = -1
+                        livePoints.clear()
+                    } else if (editing && !panning && !multi && (tool == PdfTool.TEXT || tool == PdfTool.ERASER)) {
+                        locate(down.position)?.let { (pg, pt) -> tapCallback(pg, pt) }
+                    }
                     if (multi) settle()
-                    if (panning && !multi && zoom.scale > 1f) {
+                    if (panning && !multi && (zoom.scale > 1f || editing)) {
                         val v = tracker.calculateVelocity()
                         flingJob = scope.launch {
                             val ax = Animatable(0f)
@@ -453,10 +619,12 @@ private fun ZoomablePages(
                     }
                 }
             }
-            .pointerInput(listState) {
-                detectTapGestures(onDoubleTap = { pos ->
-                    if (zoom.scale > 1.05f) animateZoomTo(1f, pos) else animateZoomTo(2.5f, pos)
-                })
+            .pointerInput(listState, editing) {
+                if (!editing) {
+                    detectTapGestures(onDoubleTap = { pos ->
+                        if (zoom.scale > 1.05f) animateZoomTo(1f, pos) else animateZoomTo(2.5f, pos)
+                    })
+                }
             },
     ) {
         LazyColumn(
@@ -477,7 +645,12 @@ private fun ZoomablePages(
             items(controller.pageCount, key = { it }) { index ->
                 val pageHits = remember(hits, index) { hits.filter { it.page == index } }
                 val current = hits.getOrNull(hitIndex)?.takeIf { it.page == index }
-                PdfPageItem(controller, index, pageWidthPx, zoom.settledScale, sizesVersion, pageHits, current)
+                val pageMarks = marks.filter { it.page == index }
+                val live = if (livePage == index) livePoints else null
+                PdfPageItem(
+                    controller, index, pageWidthPx, zoom.settledScale, sizesVersion, pageHits, current,
+                    pageMarks, live, if (live != null) color else 0, width, tool == PdfTool.HIGHLIGHTER,
+                )
             }
         }
     }
@@ -492,6 +665,11 @@ private fun PdfPageItem(
     sizesVersion: Int,
     hits: List<PdfSearchHit>,
     currentHit: PdfSearchHit?,
+    marks: List<PdfMark> = emptyList(),
+    livePoints: List<Offset>? = null,
+    liveColor: Int = 0,
+    liveWidth: Float = 2f,
+    liveHighlighter: Boolean = false,
 ) {
     val renderScale = settledScale.coerceIn(1f, 3f)
     val targetWidth = (pageWidthPx * renderScale).roundToInt()
@@ -532,6 +710,16 @@ private fun PdfPageItem(
                             size = Size(r.width() * s, r.height() * s),
                         )
                     }
+                }
+            }
+        }
+        if (marks.isNotEmpty() || livePoints != null) {
+            val pageWidthPts = controller.pageWidthPoints(index)
+            Canvas(Modifier.fillMaxSize()) {
+                val sc = size.width / pageWidthPts
+                marks.forEach { drawMark(it, sc) }
+                if (livePoints != null && livePoints.isNotEmpty()) {
+                    drawInk(livePoints, liveColor, liveWidth, liveHighlighter, sc)
                 }
             }
         }
@@ -600,6 +788,168 @@ fun GoToPageDialog(pageCount: Int, current: Int, onDismiss: () -> Unit, onGo: (I
             )
         },
         confirmButton = { TextButton(enabled = valid, onClick = { onGo(value!!) }) { Text("Git") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Vazgeç") } },
+    )
+}
+
+
+// ====================================================================== düzenleme yardımcıları
+
+private fun DrawScope.drawInk(points: List<Offset>, color: Int, width: Float, highlighter: Boolean, sc: Float) {
+    val path = androidx.compose.ui.graphics.Path()
+    path.moveTo(points[0].x * sc, points[0].y * sc)
+    if (points.size == 1) path.lineTo(points[0].x * sc + 0.1f, points[0].y * sc)
+    for (i in 1 until points.size) path.lineTo(points[i].x * sc, points[i].y * sc)
+    drawPath(
+        path,
+        color = Color(color).copy(alpha = if (highlighter) 0.4f else 1f),
+        style = Stroke(
+            width = width * sc,
+            cap = if (highlighter) StrokeCap.Square else StrokeCap.Round,
+            join = StrokeJoin.Round,
+        ),
+        blendMode = if (highlighter) BlendMode.Multiply else BlendMode.SrcOver,
+    )
+}
+
+private fun DrawScope.drawMark(m: PdfMark, sc: Float) {
+    when (m) {
+        is InkMark -> if (m.points.isNotEmpty()) drawInk(m.points, m.color, m.width, m.highlighter, sc)
+        is TextMark -> drawIntoCanvas { c ->
+            val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = m.color
+                textSize = m.size * sc
+                typeface = android.graphics.Typeface.SANS_SERIF
+            }
+            val leading = m.size * 1.25f
+            m.text.replace("\r", "").split('\n').forEachIndexed { i, line ->
+                c.nativeCanvas.drawText(line, m.x * sc, (m.y + m.size + i * leading) * sc, paint)
+            }
+        }
+    }
+}
+
+/** Silgi için: dokunulan nokta işaretlemenin üzerinde mi (sayfa noktası cinsinden). */
+fun hitsMark(m: PdfMark, p: Offset): Boolean = when (m) {
+    is InkMark -> {
+        val tol = m.width / 2 + 10f
+        m.points.any { (it - p).getDistance() <= tol } ||
+            m.points.zipWithNext().any { (a, b) -> distanceToSegment(p, a, b) <= tol }
+    }
+    is TextMark -> {
+        val lines = m.text.split('\n')
+        val w = lines.maxOf { it.length } * m.size * 0.6f
+        val h = lines.size * m.size * 1.25f + m.size * 0.3f
+        p.x in (m.x - 6f)..(m.x + w + 6f) && p.y in (m.y - 6f)..(m.y + h + 6f)
+    }
+}
+
+private fun distanceToSegment(p: Offset, a: Offset, b: Offset): Float {
+    val ab = b - a
+    val len2 = ab.x * ab.x + ab.y * ab.y
+    if (len2 == 0f) return (p - a).getDistance()
+    val t = (((p.x - a.x) * ab.x + (p.y - a.y) * ab.y) / len2).coerceIn(0f, 1f)
+    return (p - Offset(a.x + ab.x * t, a.y + ab.y * t)).getDistance()
+}
+
+@Composable
+private fun PdfEditToolbar(
+    tool: PdfTool,
+    onTool: (PdfTool) -> Unit,
+    color: Int,
+    onColor: (Int) -> Unit,
+    sizeIndex: Int,
+    onSize: (Int) -> Unit,
+    busy: Boolean,
+    onRotate: () -> Unit,
+    onDeletePage: () -> Unit,
+    canDelete: Boolean,
+) {
+    Column(
+        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow).navigationBarsPadding()
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            PdfTool.entries.forEach { t ->
+                val selected = t == tool
+                val icon = when (t) {
+                    PdfTool.PEN -> Icons.Filled.Create
+                    PdfTool.HIGHLIGHTER -> AyazIcons.Highlighter
+                    PdfTool.TEXT -> AyazIcons.TextFields
+                    PdfTool.ERASER -> AyazIcons.Eraser
+                }
+                Column(
+                    Modifier.clip(RoundedCornerShape(12.dp))
+                        .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else Color.Transparent)
+                        .clickable { onTool(t) }
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .semantics { contentDescription = "Araç: ${t.label}" },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Icon(icon, null, tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                    Text(t.label, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+            Box(Modifier.weight(1f))
+            IconButton(onClick = onRotate, enabled = !busy) { Icon(AyazIcons.RotateRight, "Sayfayı döndür") }
+            IconButton(onClick = onDeletePage, enabled = !busy && canDelete) { Icon(Icons.Filled.Delete, "Sayfayı sil") }
+        }
+        if (tool != PdfTool.ERASER) {
+            Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                PEN_COLORS.forEach { c ->
+                    Box(
+                        Modifier.padding(horizontal = 4.dp).size(28.dp).clip(CircleShape).background(Color(c))
+                            .border(if (c == color) 3.dp else 1.dp, if (c == color) MaterialTheme.colorScheme.primary else Color(0x55888888), CircleShape)
+                            .clickable { onColor(c) }
+                            .semantics { contentDescription = "Renk ${PEN_COLORS.indexOf(c) + 1}" },
+                    )
+                }
+                Box(Modifier.weight(1f))
+                listOf("İnce", "Orta", "Kalın").forEachIndexed { i, label ->
+                    val sel = i == sizeIndex
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clip(RoundedCornerShape(8.dp))
+                            .background(if (sel) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
+                            .clickable { onSize(i) }
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                    )
+                }
+            }
+        }
+        Text(
+            when (tool) {
+                PdfTool.PEN, PdfTool.HIGHLIGHTER -> "Tek parmakla çizin; iki parmakla kaydırın veya yakınlaştırın."
+                PdfTool.TEXT -> "Metin eklemek istediğiniz yere dokunun."
+                PdfTool.ERASER -> "Silmek için kaydedilmemiş bir çizime veya metne dokunun."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp, top = 2.dp),
+        )
+    }
+}
+
+@Composable
+private fun TextNoteDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var text by remember { mutableStateOf("") }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Metin ekle") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                placeholder = { Text("Not yazın") },
+                minLines = 2,
+            )
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(text) }, enabled = text.isNotBlank()) { Text("Ekle") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Vazgeç") } },
     )
 }

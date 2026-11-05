@@ -9,6 +9,9 @@ import com.ayaz.viewer.xlsx.ParseCancelledException
 import com.ayaz.viewer.xlsx.SheetData
 import com.ayaz.viewer.xlsx.SheetSearch
 import com.ayaz.viewer.xlsx.WorkbookData
+import com.ayaz.viewer.xlsx.SheetEdit
+import com.ayaz.viewer.xlsx.XlsxEditException
+import com.ayaz.viewer.xlsx.XlsxEditor
 import com.ayaz.viewer.xlsx.XlsxException
 import com.ayaz.viewer.xlsx.XlsxReader
 import kotlinx.coroutines.CoroutineScope
@@ -41,12 +44,30 @@ sealed interface SheetLoad {
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class XlsxController private constructor(
-    private val reader: XlsxReader,
-    val workbook: WorkbookData,
+    private var reader: XlsxReader,
+    workbook: WorkbookData,
     private val file: File,
     private val temporary: Boolean,
     val locale: FormatLocale,
+    private val editDir: File,
 ) {
+    var workbook: WorkbookData = workbook
+        private set
+
+    /** Şu anki içerik (düzenleme yoksa açılan dosya, varsa son çalışma kopyası). */
+    var currentFile: File = file
+        private set
+    private val history = ArrayDeque<File>()
+
+    private val _dirty = MutableStateFlow(false)
+    /** Kaydedilmemiş düzenleme var mı. */
+    val dirty: StateFlow<Boolean> = _dirty.asStateFlow()
+
+    private val _canUndo = MutableStateFlow(false)
+    val canUndo: StateFlow<Boolean> = _canUndo.asStateFlow()
+
+    private val _busy = MutableStateFlow(false)
+    val busy: StateFlow<Boolean> = _busy.asStateFlow()
     private val parseDispatcher = Dispatchers.IO.limitedParallelism(1)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val cache = object : LinkedHashMap<Int, SheetData>(4, 0.75f, true) {
@@ -111,6 +132,96 @@ class XlsxController private constructor(
         }
     }
 
+    // ------------------------------------------------------------------ düzenleme
+
+    /**
+     * Düzenlemeyi geçerli sayfaya uygular. Sonuç yeni bir çalışma kopyasına yazılır ve sayfa
+     * yeniden okunur; açılan dosyaya dokunulmaz. Hata varsa kullanıcı mesajı döner.
+     */
+    suspend fun applyEdit(edit: SheetEdit): String? {
+        val sheetIndex = _state.value.index
+        if (closed) return null
+        _busy.value = true
+        try {
+            return withContext(parseDispatcher) {
+                val out = File.createTempFile("duzenleme_", ".xlsx", editDir)
+                try {
+                    XlsxEditor.apply(currentFile, out, sheetIndex, edit) { Xml.newPullParser() }
+                } catch (e: XlsxEditException) {
+                    out.delete()
+                    return@withContext editMessage(e.reason)
+                } catch (e: OutOfMemoryError) {
+                    out.delete()
+                    return@withContext "Bu sayfa düzenleme için çok büyük."
+                } catch (e: Exception) {
+                    out.delete()
+                    return@withContext "Düzenleme uygulanamadı: dosya beklenmeyen bir yapıda."
+                }
+                history.addLast(currentFile)
+                while (history.size > MAX_UNDO) {
+                    val old = history.removeFirst()
+                    if (old != file) old.delete()
+                }
+                switchTo(out)
+                _dirty.value = true
+                _canUndo.value = history.isNotEmpty()
+                null
+            }.also { if (it == null) reloadSheet(sheetIndex) }
+        } finally {
+            _busy.value = false
+        }
+    }
+
+    /** Son düzenlemeyi geri alır. */
+    suspend fun undo() {
+        if (history.isEmpty() || closed) return
+        val sheetIndex = _state.value.index
+        withContext(parseDispatcher) {
+            val prev = history.removeLast()
+            val discarded = currentFile
+            switchTo(prev)
+            if (discarded != file) discarded.delete()
+            _canUndo.value = history.isNotEmpty()
+            _dirty.value = history.isNotEmpty()
+        }
+        reloadSheet(sheetIndex)
+    }
+
+    /** Kaydedildi: mevcut içerik artık dosyanın kendisiyle aynı. */
+    fun markSaved() {
+        _dirty.value = false
+        CoroutineScope(parseDispatcher).launch {
+            // Kaydedilen içerik artık asıl dosya; eski adımlara geri dönülmez.
+            history.forEach { if (it != file && it != currentFile) it.delete() }
+            history.clear()
+            _canUndo.value = false
+        }
+    }
+
+    private fun switchTo(f: File) {
+        val newReader = XlsxReader(f, { Xml.newPullParser() })
+        val wb = newReader.readWorkbook()
+        val old = reader
+        reader = newReader
+        workbook = wb
+        currentFile = f
+        synchronized(cache) { cache.clear() }
+        old.close()
+    }
+
+    private fun reloadSheet(index: Int) {
+        _state.value = SheetLoad.Loading(index)
+        select(index)
+    }
+
+    private fun editMessage(r: XlsxEditException.Reason): String = when (r) {
+        XlsxEditException.Reason.HAS_TABLES ->
+            "Bu sayfada Excel tablosu var; satır/sütun ekleme ve silme yapılamıyor. Hücre değerlerini düzenleyebilirsiniz."
+        XlsxEditException.Reason.TOO_LARGE -> "Bu sayfa düzenleme için çok büyük."
+        XlsxEditException.Reason.SHEET_NOT_FOUND -> "Bu sayfa düzenlenemiyor."
+        XlsxEditException.Reason.CORRUPT -> "Düzenleme uygulanamadı: sayfa beklenmeyen bir yapıda."
+    }
+
     fun close() {
         if (closed) return
         closed = true
@@ -119,18 +230,22 @@ class XlsxController private constructor(
         CoroutineScope(parseDispatcher).launch {
             reader.close()
             if (temporary) file.delete()
+            history.forEach { if (it != file) it.delete() }
+            if (currentFile != file) currentFile.delete()
         }
     }
 
     companion object {
+        private const val MAX_UNDO = 30
+
         @Throws(UserFacingException::class)
-        fun open(file: File, temporary: Boolean, locale: FormatLocale): XlsxController {
+        fun open(file: File, temporary: Boolean, locale: FormatLocale, editDir: File): XlsxController {
             var reader: XlsxReader? = null
             try {
                 reader = XlsxReader(file, { Xml.newPullParser() })
                 val wb = reader.readWorkbook()
                 if (wb.sheets.isEmpty()) throw XlsxException(XlsxException.Reason.CORRUPT)
-                return XlsxController(reader, wb, file, temporary, locale)
+                return XlsxController(reader, wb, file, temporary, locale, editDir)
             } catch (e: XlsxException) {
                 reader?.close()
                 if (temporary) file.delete()

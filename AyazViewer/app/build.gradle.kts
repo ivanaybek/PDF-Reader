@@ -73,6 +73,7 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/{DEPENDENCIES,LICENSE,LICENSE.txt,NOTICE,NOTICE.txt,versions/9/OSGI-INF/MANIFEST.MF}"
         }
     }
 
@@ -95,6 +96,11 @@ kotlin {
 
 dependencies {
     implementation(project(":xlsx"))
+    // PDF düzenleme (açık kaynak, Apache 2.0, çevrimdışı). Şifreleme/imza için gereken
+    // BouncyCastle hariç tutulur: yalnızca açık anahtarla şifrelenmiş PDF'lerde gerekir.
+    implementation(libs.pdfbox.android) {
+        exclude(group = "org.bouncycastle")
+    }
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

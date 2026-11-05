@@ -87,14 +87,66 @@ class DocumentAccess(private val context: Context) {
         buf.copyOf(total)
     }
 
-    fun takePersistable(uri: Uri): Boolean = try {
-        resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        true
-    } catch (_: SecurityException) {
-        false
-    } catch (_: IllegalArgumentException) {
-        false
+    /** Kalıcı okuma (mümkünse okuma+yazma) izni alır. Okuma izni alınamazsa false. */
+    fun takePersistable(uri: Uri): Boolean {
+        try {
+            resolver.takePersistableUriPermission(
+                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+            )
+            return true
+        } catch (_: Exception) {
+            // yazma izni verilmemiş olabilir; yalnızca okuma dene
+        }
+        return try {
+            resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            true
+        } catch (_: SecurityException) {
+            false
+        } catch (_: IllegalArgumentException) {
+            false
+        }
     }
+
+    /** Dosyanın üzerine yazılabilir mi: uygulama kopyası veya kalıcı yazma izni. */
+    fun canOverwrite(uri: Uri): Boolean {
+        localFile(uri)?.let { return it.exists() && it.canWrite() }
+        val s = uri.toString()
+        return resolver.persistedUriPermissions.any { p ->
+            p.isWritePermission && (p.uri == uri || (isTreeUri(p.uri) && s.startsWith(p.uri.toString())))
+        }
+    }
+
+    /**
+     * [source] içeriğini kullanıcı onayıyla [uri] dosyasının üzerine yazar.
+     * Önce tamamen yazılıp sonra yer değiştirilir (uygulama kopyalarında); SAF dosyalarında "wt" kipi kullanılır.
+     */
+    @Throws(IOException::class)
+    fun overwrite(uri: Uri, source: File) {
+        localFile(uri)?.let { target ->
+            val tmp = File(target.parentFile, ".kaydediliyor")
+            source.copyTo(tmp, overwrite = true)
+            if (!tmp.renameTo(target)) {
+                tmp.copyTo(target, overwrite = true)
+                tmp.delete()
+            }
+            return
+        }
+        writeTo(uri, source)
+    }
+
+    /** [source] içeriğini [uri] konumuna yazar (yeni oluşturulan belge veya üzerine yazma). */
+    @Throws(IOException::class)
+    fun writeTo(uri: Uri, source: File) {
+        val out = try {
+            resolver.openOutputStream(uri, "wt")
+        } catch (_: Exception) {
+            null
+        } ?: resolver.openOutputStream(uri, "w") ?: throw IOException("no output stream")
+        out.use { o -> source.inputStream().use { it.copyTo(o, BUFFER) } }
+    }
+
+    /** Düzenleme sırasında oluşturulan geçici çalışma kopyaları için klasör. */
+    val editDir: File get() = File(context.cacheDir, "edit").apply { mkdirs() }
 
     /** URI için kalıcı okuma izni var mı (doğrudan veya izin verilmiş bir klasör ağacı üzerinden). */
     fun hasPersistedRead(uri: Uri): Boolean {
@@ -187,6 +239,7 @@ class DocumentAccess(private val context: Context) {
         val now = System.currentTimeMillis()
         shareDir.listFiles()?.forEach { if (now - it.lastModified() > maxAgeMs) it.deleteRecursively() }
         viewDir.listFiles()?.forEach { if (now - it.lastModified() > 60_000L) it.delete() }
+        File(context.cacheDir, "edit").listFiles()?.forEach { if (now - it.lastModified() > 60_000L) it.deleteRecursively() }
     }
 
     companion object {

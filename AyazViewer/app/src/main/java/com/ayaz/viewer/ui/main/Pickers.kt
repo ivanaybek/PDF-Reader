@@ -22,7 +22,11 @@ class OpenDocumentContract : ActivityResultContract<PickRequest, Uri?>() {
             type = if (input.mimeTypes.size == 1) input.mimeTypes[0] else "*/*"
             putExtra(Intent.EXTRA_MIME_TYPES, input.mimeTypes)
             input.initialUri?.let { putExtra(DocumentsContract.EXTRA_INITIAL_URI, it) }
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            // Yazma izni yalnızca kullanıcı düzenlemeyi kaydederken "Üzerine yaz" derse kullanılır.
+            addFlags(
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
+            )
         }
 
     override fun parseResult(resultCode: Int, intent: Intent?): Uri? =

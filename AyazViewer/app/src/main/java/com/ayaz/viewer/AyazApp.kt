@@ -22,6 +22,8 @@ class AyazApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // PDF düzenleme kitaplığının yerel kaynakları (yazı tipleri, glif listeleri).
+        com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(applicationContext)
         appScope.launch(Dispatchers.IO) {
             // Paylaşım için oluşturulan eski geçici kopyaları ve görüntüleme önbelleğini temizle.
             documents.cleanupTemporary(maxAgeMs = 6 * 60 * 60 * 1000L)

@@ -3,6 +3,7 @@ package com.ayaz.viewer.viewer.xlsx
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -41,6 +43,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -80,7 +83,11 @@ import com.ayaz.viewer.ui.components.SpacerH
 import com.ayaz.viewer.ui.components.SpacerW
 import com.ayaz.viewer.ui.icons.AyazIcons
 import com.ayaz.viewer.ui.theme.LocalAyazColors
+import com.ayaz.viewer.viewer.SaveRequest
+import com.ayaz.viewer.viewer.UnsavedChangesDialog
+import com.ayaz.viewer.xlsx.CellEditing
 import com.ayaz.viewer.xlsx.CellRef
+import com.ayaz.viewer.xlsx.SheetEdit
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -95,6 +102,7 @@ fun XlsxViewerScreen(
     onBack: () -> Unit,
     onShare: () -> Unit,
     onSheetChanged: (Int) -> Unit,
+    onSaveRequest: (SaveRequest) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -109,6 +117,24 @@ fun XlsxViewerScreen(
     var hitIndex by remember { mutableIntStateOf(-1) }
     var searching by remember { mutableStateOf(false) }
     var searchJob by remember { mutableStateOf<Job?>(null) }
+    var editing by rememberSaveable { mutableStateOf(false) }
+    var confirmExit by remember { mutableStateOf(false) }
+    val dirty by controller.dirty.collectAsStateWithLifecycle()
+    val canUndo by controller.canUndo.collectAsStateWithLifecycle()
+    val busy by controller.busy.collectAsStateWithLifecycle()
+
+    fun requestSave() {
+        onSaveRequest(SaveRequest(produce = { controller.currentFile }, onOverwritten = { controller.markSaved() }))
+    }
+    val guardedBack: () -> Unit = { if (dirty) confirmExit = true else onBack() }
+    BackHandler(enabled = dirty) { confirmExit = true }
+    if (confirmExit) {
+        UnsavedChangesDialog(
+            onSave = { confirmExit = false; requestSave() },
+            onDiscard = { confirmExit = false; onBack() },
+            onDismiss = { confirmExit = false },
+        )
+    }
 
     LaunchedEffect(sheetIndex) {
         controller.select(sheetIndex)
@@ -116,9 +142,26 @@ fun XlsxViewerScreen(
         hits = LongArray(0); hitSet = emptySet(); hitIndex = -1
     }
 
-    val ready = load as? SheetLoad.Ready
+    // Düzenleme sonrası yeniden okunurken önceki görünüm korunur (titreme olmaz).
+    val lastReady = remember { arrayOfNulls<SheetLoad.Ready>(1) }
+    val currentLoad = load
+    if (currentLoad is SheetLoad.Ready) lastReady[0] = currentLoad
+    val ready = (currentLoad as? SheetLoad.Ready)
+        ?: lastReady[0]?.takeIf { currentLoad is SheetLoad.Loading && it.index == sheetIndex && currentLoad.index == sheetIndex }
     val gridModel = remember(ready) { ready?.let { GridModel(it.sheet, controller.workbook, it.formatter) } }
-    val gridState = remember(ready?.index, ready?.sheet) { GridState() }
+    val gridState = remember(sheetIndex) { GridState() }
+
+    fun applyEdit(edit: SheetEdit, moveDown: Boolean = false) {
+        scope.launch {
+            val err = controller.applyEdit(edit)
+            if (err != null) {
+                snackbar.showSnackbar(err)
+            } else if (moveDown && edit is SheetEdit.SetCell) {
+                gridState.selected = GridState.pack(edit.row + 1, edit.col)
+                gridState.reveal(edit.row + 1, edit.col)
+            }
+        }
+    }
     val palette = if (LocalAyazColors.current.isDark && !lightSheets) GridPalette.DARK else GridPalette.LIGHT
 
     fun selectCell(packed: Long) {
@@ -190,9 +233,18 @@ fun XlsxViewerScreen(
                             )
                         }
                     },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri") } },
+                    navigationIcon = { IconButton(onClick = guardedBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri") } },
                     actions = {
+                        if (editing) {
+                            IconButton(onClick = { scope.launch { controller.undo() } }, enabled = canUndo && !busy) {
+                                Icon(AyazIcons.Undo, "Geri al")
+                            }
+                            IconButton(onClick = ::requestSave, enabled = dirty && !busy) { Icon(AyazIcons.Save, "Kaydet") }
+                            IconButton(onClick = { editing = false }) { Icon(Icons.Filled.Check, "Düzenlemeyi bitir") }
+                            return@TopAppBar
+                        }
                         IconButton(onClick = { searchOpen = true }) { Icon(Icons.Filled.Search, "Hücrelerde ara") }
+                        IconButton(onClick = { editing = true }) { Icon(Icons.Filled.Edit, "Düzenle") }
                         IconButton(onClick = onShare) { Icon(Icons.Filled.Share, "Paylaş") }
                         Box {
                             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Diğer") }
@@ -220,9 +272,26 @@ fun XlsxViewerScreen(
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             val r = ready
+            if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (r != null && gridModel != null && r.index == sheetIndex) {
                 val selected = gridState.selected
-                CellInfoBar(
+                if (editing) {
+                    CellEditBar(
+                        controller = controller,
+                        ready = r,
+                        selected = selected,
+                        busy = busy,
+                        onApply = { row, col, text ->
+                            val input = CellEditing.parseInput(
+                                text, controller.locale,
+                                CellEditing.isDateStyle(r.sheet, controller.workbook, row, col),
+                                controller.workbook.date1904,
+                            )
+                            applyEdit(SheetEdit.SetCell(row, col, input), moveDown = true)
+                        },
+                        onStructural = { applyEdit(it) },
+                    )
+                } else CellInfoBar(
                     reference = if (selected >= 0) CellRef.name(CellRef.rowOf(selected), CellRef.colOf(selected)) else null,
                     value = if (selected >= 0) r.formatter.text(r.sheet, CellRef.rowOf(selected), CellRef.colOf(selected)) else "",
                     onCopy = { text ->
@@ -378,5 +447,81 @@ private fun SheetSearchBar(
         if (status.isNotEmpty()) Text(status, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 6.dp))
         IconButton(onClick = onPrev) { Icon(Icons.Filled.KeyboardArrowUp, "Önceki sonuç") }
         IconButton(onClick = onNext) { Icon(Icons.Filled.KeyboardArrowDown, "Sonraki sonuç") }
+    }
+}
+
+
+/** Düzenleme kipinde seçili hücrenin değer kutusu ve satır/sütun işlemleri. */
+@Composable
+private fun CellEditBar(
+    controller: XlsxController,
+    ready: SheetLoad.Ready,
+    selected: Long,
+    busy: Boolean,
+    onApply: (row: Int, col: Int, text: String) -> Unit,
+    onStructural: (SheetEdit) -> Unit,
+) {
+    val hasSel = selected >= 0
+    val row = if (hasSel) CellRef.rowOf(selected) else 0
+    val col = if (hasSel) CellRef.colOf(selected) else 0
+    var text by remember(selected, ready) {
+        mutableStateOf(if (hasSel) CellEditing.editText(ready.sheet, controller.workbook, controller.locale, row, col) else "")
+    }
+    var menu by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow).padding(horizontal = 8.dp, vertical = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            ) {
+                Text(
+                    if (hasSel) CellRef.name(row, col) else "—",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.semantics { contentDescription = "Düzenlenen hücre ${if (hasSel) CellRef.name(row, col) else "yok"}" },
+                )
+            }
+            SpacerW(8)
+            TextField(
+                value = text,
+                onValueChange = { text = it },
+                enabled = hasSel && !busy,
+                modifier = Modifier.weight(1f).semantics { contentDescription = "Hücre değeri" },
+                placeholder = { Text(if (hasSel) "Değer veya =FORMÜL" else "Önce bir hücreye dokunun") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { if (hasSel) onApply(row, col, text) }),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                ),
+            )
+            IconButton(onClick = { onApply(row, col, text) }, enabled = hasSel && !busy) {
+                Icon(Icons.Filled.Check, "Değeri uygula")
+            }
+            Box {
+                IconButton(onClick = { menu = true }, enabled = hasSel && !busy) { Icon(AyazIcons.TableRows, "Satır ve sütun işlemleri") }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    val items = listOf(
+                        "Üstüne satır ekle" to SheetEdit.InsertRows(row),
+                        "Altına satır ekle" to SheetEdit.InsertRows(row + 1),
+                        "Satır ${row + 1}'i sil" to SheetEdit.DeleteRows(row),
+                        "Soluna sütun ekle" to SheetEdit.InsertCols(col),
+                        "Sağına sütun ekle" to SheetEdit.InsertCols(col + 1),
+                        "${CellRef.columnName(col)} sütununu sil" to SheetEdit.DeleteCols(col),
+                        "Hücreyi temizle" to SheetEdit.SetCell(row, col, com.ayaz.viewer.xlsx.CellInput.Empty),
+                    )
+                    items.forEach { (label, edit) ->
+                        DropdownMenuItem(text = { Text(label) }, onClick = { menu = false; onStructural(edit) })
+                    }
+                }
+            }
+        }
+        Text(
+            "Formüller İngilizce yazılır (ör. =SUM(A1:A5)) ve Excel'de açılınca hesaplanır.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp, top = 2.dp),
+        )
     }
 }

@@ -1,5 +1,9 @@
 package com.ayaz.viewer.viewer
 
+import android.content.ActivityNotFoundException
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,7 +22,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.ayaz.viewer.core.FileKind
+import com.ayaz.viewer.core.FileKinds
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ayaz.viewer.data.RecentFile
 import com.ayaz.viewer.share.ShareSheet
@@ -32,6 +39,45 @@ fun ViewerScreen(vm: ViewerViewModel, onClose: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     var shareFile by remember { mutableStateOf<RecentFile?>(null) }
+    val context = LocalContext.current
+
+    // ---- kaydetme akışı (her seferinde sorulur)
+    var pendingSave by remember { mutableStateOf<SaveRequest?>(null) }
+    var choiceFor by remember { mutableStateOf<RecentFile?>(null) }
+    val current = (state as? ViewerState.Pdf)?.file ?: (state as? ViewerState.Xlsx)?.file
+    val mime = if (current?.kind == FileKind.PDF) FileKinds.MIME_PDF else FileKinds.MIME_XLSX
+    val toast: (String) -> Unit = { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+    val createLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(mime)) { uri ->
+        val req = pendingSave
+        pendingSave = null
+        if (uri != null && req != null) vm.saveAsNew(uri, req, toast)
+    }
+    val requestSave: (SaveRequest) -> Unit = { req ->
+        pendingSave = req
+        choiceFor = current
+    }
+    choiceFor?.let { f ->
+        SaveChoiceDialog(
+            fileName = f.name,
+            canOverwrite = remember(f.uri) { vm.canOverwrite(f) },
+            onOverwrite = {
+                choiceFor = null
+                val req = pendingSave
+                pendingSave = null
+                if (req != null) vm.saveOverwrite(f, req, toast)
+            },
+            onNewCopy = {
+                choiceFor = null
+                try {
+                    createLauncher.launch(editedCopyName(f.name))
+                } catch (_: ActivityNotFoundException) {
+                    pendingSave = null
+                    toast("Bu cihazda kaydetme konumu seçici bulunamadı.")
+                }
+            },
+            onDismiss = { choiceFor = null; pendingSave = null },
+        )
+    }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         when (val s = state) {
@@ -57,6 +103,7 @@ fun ViewerScreen(vm: ViewerViewModel, onClose: () -> Unit) {
                 onBack = onClose,
                 onShare = { shareFile = s.file },
                 onPageChanged = { vm.savePdfPage(s.file, it) },
+                edit = remember(s.file.id) { vm.pdfEditActions(s.file, requestSave) },
             )
             is ViewerState.Xlsx -> XlsxViewerScreen(
                 file = s.file,
@@ -67,6 +114,7 @@ fun ViewerScreen(vm: ViewerViewModel, onClose: () -> Unit) {
                 onBack = onClose,
                 onShare = { shareFile = s.file },
                 onSheetChanged = { vm.saveSheet(s.file, it) },
+                onSaveRequest = requestSave,
             )
         }
     }

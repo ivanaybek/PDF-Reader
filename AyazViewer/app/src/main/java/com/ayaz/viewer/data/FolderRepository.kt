@@ -54,7 +54,13 @@ class FolderRepository(private val context: Context) {
 
     fun add(treeUri: Uri): GrantedFolder? {
         return try {
-            context.contentResolver.takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            } catch (_: SecurityException) {
+                context.contentResolver.takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
             val docId = DocumentsContract.getTreeDocumentId(treeUri)
             val name = queryName(DocumentsContract.buildDocumentUriUsingTree(treeUri, docId))
                 ?: docId.substringAfterLast(':').substringAfterLast('/').ifBlank { "Klasör" }
@@ -68,9 +74,12 @@ class FolderRepository(private val context: Context) {
 
     fun remove(folder: GrantedFolder) {
         try {
-            context.contentResolver.releasePersistableUriPermission(
-                Uri.parse(folder.treeUri), Intent.FLAG_GRANT_READ_URI_PERMISSION,
-            )
+            val uri = Uri.parse(folder.treeUri)
+            val flags = context.contentResolver.persistedUriPermissions.firstOrNull { it.uri == uri }?.let {
+                (if (it.isReadPermission) Intent.FLAG_GRANT_READ_URI_PERMISSION else 0) or
+                    (if (it.isWritePermission) Intent.FLAG_GRANT_WRITE_URI_PERMISSION else 0)
+            } ?: Intent.FLAG_GRANT_READ_URI_PERMISSION
+            context.contentResolver.releasePersistableUriPermission(uri, flags)
         } catch (_: Exception) {}
         write(_folders.value.filterNot { it.treeUri == folder.treeUri })
     }

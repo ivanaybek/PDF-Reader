@@ -36,7 +36,7 @@ class XlsxOnDeviceTest {
 
     @Test
     fun simpleWorkbook() = runBlocking {
-        val c = XlsxController.open(TestFiles.cacheCopy("simple.xlsx"), false, FormatLocale.TURKISH)
+        val c = XlsxController.open(TestFiles.cacheCopy("simple.xlsx"), false, FormatLocale.TURKISH, TestFiles.app.documents.editDir)
         try {
             val r = load(c, 0)
             val f = r.formatter
@@ -53,7 +53,7 @@ class XlsxOnDeviceTest {
 
     @Test
     fun multipleSheetsAndMerges() = runBlocking {
-        val c = XlsxController.open(TestFiles.cacheCopy("multi_sheet.xlsx"), false, FormatLocale.TURKISH)
+        val c = XlsxController.open(TestFiles.cacheCopy("multi_sheet.xlsx"), false, FormatLocale.TURKISH, TestFiles.app.documents.editDir)
         try {
             assertEquals(5, c.sheetCount)
             val data = load(c, 1)
@@ -69,7 +69,7 @@ class XlsxOnDeviceTest {
 
     @Test
     fun handcraftedAndChartSheet() = runBlocking {
-        val c = XlsxController.open(TestFiles.cacheCopy("handcrafted.xlsx"), false, FormatLocale.TURKISH)
+        val c = XlsxController.open(TestFiles.cacheCopy("handcrafted.xlsx"), false, FormatLocale.TURKISH, TestFiles.app.documents.editDir)
         try {
             val r = load(c, 0)
             assertEquals("Zengin metin", r.formatter.text(r.sheet, 0, 1))
@@ -84,7 +84,7 @@ class XlsxOnDeviceTest {
 
     private fun expectMessage(asset: String, contains: String) {
         try {
-            XlsxController.open(TestFiles.cacheCopy(asset), false, FormatLocale.TURKISH).close()
+            XlsxController.open(TestFiles.cacheCopy(asset), false, FormatLocale.TURKISH, TestFiles.app.documents.editDir).close()
             fail("$asset için hata bekleniyordu")
         } catch (e: UserFacingException) {
             assertTrue("mesaj: ${e.message}", e.message!!.contains(contains, ignoreCase = true))
@@ -132,7 +132,7 @@ class XlsxOnDeviceTest {
             z.closeEntry()
         }
         val t0 = System.nanoTime()
-        val c = XlsxController.open(f, false, FormatLocale.TURKISH)
+        val c = XlsxController.open(f, false, FormatLocale.TURKISH, TestFiles.app.documents.editDir)
         try {
             val r = load(c, 0)
             val ms = (System.nanoTime() - t0) / 1_000_000
