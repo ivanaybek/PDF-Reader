@@ -17,7 +17,7 @@ Hesap, abonelik, reklam, analitik, sunucu ve internet izni yoktur.
 | Derleme | Gradle 8.14.3 (wrapper), Android Gradle Plugin 8.10.1 | Standart Android Studio projesi |
 | PDF | Android `PdfRenderer` (sistem bileşeni) | Ek SDK gerektirmez, çevrimdışı |
 | PDF arama | `PdfRenderer.Page.searchText()` | Android 15+ (veya güncel sistem PDF bileşeni) |
-| PDF düzenleme/oluşturma | [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android) 2.0.27 (Apache 2.0) | Çevrimdışı; işaretlemeleri gerçek PDF notu olarak yazar |
+| PDF düzenleme/oluşturma | [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android) 2.0.27 (Apache 2.0) | Çevrimdışı; işaretlemeleri sayfaya çizer, sayfa döndürür/siler, metinden PDF üretir |
 | Yazı tipi | DejaVu Sans (Bitstream Vera lisansı, `assets/fonts`) | PDF'e Türkçe karakterli metin yazmak için |
 | XLSX | Projeye özel `:xlsx` modülü (saf Kotlin, ZIP + akışlı XML) | Apache POI gibi ağır kitaplıklar yerine hızlı ve hafif |
 | Dosya erişimi | Storage Access Framework (SAF), `FileProvider` | Geniş depolama izni gerekmez |
@@ -91,9 +91,10 @@ AyazViewer/
   sütun ekle, sütun sil, hücreyi temizle. Ekleme/silmede formüller, birleşik hücreler, sütun genişlikleri, koşullu
   biçimler ve veri doğrulamaları birlikte kayar; silinen hücreye başvuran formül Excel'deki gibi `#REF!` olur.
 - **PDF:** Kalem, vurgulayıcı, metin notu (5 renk, 3 kalınlık), silgi (henüz kaydedilmemiş işaretler için), sayfayı
-  döndür, sayfayı sil. Tek parmakla çizilir; iki parmakla kaydırılır/yakınlaştırılır. İşaretlemeler gerçek PDF notu
-  (Ink / FreeText) olarak eklenir: belgenin kendi metni değişmez, aranabilir ve seçilebilir kalır; Adobe, Chrome,
-  telefonun kendi görüntüleyicisi gibi diğer uygulamalarda da görünür.
+  döndür, sayfayı sil. Tek parmakla çizilir; iki parmakla kaydırılır/yakınlaştırılır. İşaretlemeler kaydedilince sayfanın
+  içine çizilir. (Android'in yerleşik PDF bileşeni PDF notlarını göstermediği için not olarak değil, sayfa içeriği
+  olarak eklenir; böylece Ayaz Viewer dahil her uygulamada aynı görünür.) Belgenin kendi metni değişmez, aranabilir ve
+  seçilebilir kalır; eklenen metin notları da aranabilir.
 - **Kaydetme her seferinde sorulur:** *Yeni kopya olarak kaydet* (sistem kaydetme ekranıyla istediğiniz klasöre,
   "Ad (düzenlendi).xlsx" önerisiyle) veya *Asıl dosyanın üzerine yaz* (yalnızca yazma izni varsa; geri alınamaz
   uyarısı gösterilir). Kaydetmeden çıkmaya çalışırsanız uyarı çıkar. Kaydedene kadar asıl dosyaya dokunulmaz.
@@ -199,8 +200,10 @@ Gerçek test sonuçları ve hangi testlerin nerede çalıştığı için `TEST_R
 - **Parola korumalı PDF** ve **parola korumalı XLSX** dosyaları açılamaz (açıklayıcı mesaj gösterilir).
 - **Eski .xls (Excel 97–2003)** biçimi desteklenmez; dosyayı .xlsx olarak kaydetmek gerekir.
 - **PDF'te var olan metin değiştirilemez** (PDF bir baskı düzeni biçimidir); üzerine yazma/işaretleme, sayfa döndürme
-  ve silme yapılabilir. Silgi yalnızca henüz kaydedilmemiş işaretlemeleri siler; kaydedilmiş notlar diğer PDF
-  uygulamalarıyla kaldırılabilir. Sayfa döndürme/silme sonrası "Geri al" ile geri dönülebilir.
+  ve silme yapılabilir. Silgi yalnızca henüz kaydedilmemiş işaretlemeleri siler; kaydedilen işaretlemeler sayfanın
+  parçası olur ve sonradan silinemez (kaydetmeden önce "Geri al" kullanın).
+- Başka uygulamalarda eklenmiş **PDF notları/vurguları ve form alanları** Ayaz Viewer'da görünmez (Android'in yerleşik
+  PDF bileşeni bunları çizmez); belge içeriğinin kendisi eksiksiz gösterilir. Sayfa döndürme/silme sonrası "Geri al" ile geri dönülebilir.
 - **Excel düzenlemede** formüller yeniden hesaplanmaz (Excel'de açılınca hesaplanır), formül yazımı İngilizcedir.
   Hücre biçimi (renk, kalın vb.) değiştirilemez, değer yazılan hücrenin mevcut biçimi korunur. Excel *tablosu*
   (Tablo olarak biçimlendir) içeren sayfalarda satır/sütun ekleme-silme kapalıdır; başka sayfalardaki formüller ve

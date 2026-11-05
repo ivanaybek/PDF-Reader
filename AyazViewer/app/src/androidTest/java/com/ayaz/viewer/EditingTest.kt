@@ -58,9 +58,9 @@ class EditingTest {
         assertArrayEquals("kaynak dosya değişmemeli", before, src.readBytes())
 
         PDDocument.load(target).use { doc ->
-            val subtypes = doc.getPage(0).annotations.map { it.subtype }
-            assertEquals(listOf("Ink", "FreeText"), subtypes)
-            assertEquals("Merhaba ğüşıöç İ", doc.getPage(0).annotations[1].contents)
+            val text = com.tom_roush.pdfbox.text.PDFTextStripper().getText(doc)
+            assertTrue("eklenen metin aranabilir olmalı", text.contains("Merhaba ğüşıöç İ"))
+            assertTrue("belgenin kendi metni korunmalı", text.contains("anahtar"))
         }
         val c = openPdf(target)
         try {

@@ -287,16 +287,33 @@ class ViewerUiTest {
             rule.onNodeWithText("Asıl dosyanın üzerine yaz").performClick()
             val file = File(android.net.Uri.parse(entry.uri).path!!)
             val deadline = System.currentTimeMillis() + 20_000
-            var count = 0
+            var red = 0
             while (System.currentTimeMillis() < deadline) {
-                count = try {
-                    com.tom_roush.pdfbox.pdmodel.PDDocument.load(file).use { it.getPage(0).annotations.count { a -> a.subtype == "Ink" } }
+                red = try {
+                    redPixelsOnFirstPage(file) // kaynak PDF'te kırmızı yok; yalnızca kayıttan sonra görünür
                 } catch (_: Exception) { 0 }
-                if (count > 0) break
+                if (red > 30) break
                 Thread.sleep(300)
             }
-            assertTrue("kaydedilen PDF'te çizim notu olmalı ($count)", count == 1)
+            assertTrue("kaydedilen PDF'te kırmızı çizim görünmeli ($red)", red > 30)
             waitDesc("Sayfa 1 / 1", 30_000)
+        }
+    }
+
+    private fun redPixelsOnFirstPage(f: File): Int {
+        val pfd = android.os.ParcelFileDescriptor.open(f, android.os.ParcelFileDescriptor.MODE_READ_ONLY)
+        android.graphics.pdf.PdfRenderer(pfd).use { r ->
+            r.openPage(0).use { p ->
+                val bmp = android.graphics.Bitmap.createBitmap(p.width, p.height, android.graphics.Bitmap.Config.ARGB_8888)
+                bmp.eraseColor(android.graphics.Color.WHITE)
+                p.render(bmp, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                var n = 0
+                for (y in 0 until bmp.height step 2) for (x in 0 until bmp.width step 2) {
+                    val c = bmp.getPixel(x, y)
+                    if (android.graphics.Color.red(c) > 200 && android.graphics.Color.green(c) < 110 && android.graphics.Color.blue(c) < 110) n++
+                }
+                return n
+            }
         }
     }
 }
