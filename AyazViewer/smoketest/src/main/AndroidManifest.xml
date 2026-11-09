@@ -3,7 +3,7 @@
 
     <!-- Test edilen uygulamayı görebilmek için (Android 11+ paket görünürlüğü). -->
     <queries>
-        <package android:name="com.ayaz.viewer" />
+        <package android:name="com.turkmood.pdfreader" />
     </queries>
 
     <application android:label="Ayaz Viewer Smoke Test">

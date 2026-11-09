@@ -347,7 +347,7 @@ class ReleaseSmokeTest {
     }
 
     private companion object {
-        const val PKG = "com.ayaz.viewer"
+        const val PKG = "com.turkmood.pdfreader"
         const val XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         const val SHOTS = "/data/local/tmp/ayaz-shots"
         const val TIMEOUT = 20_000L

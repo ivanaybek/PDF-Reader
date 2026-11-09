@@ -130,6 +130,7 @@ fun SettingsScreen(vm: MainViewModel) {
         item {
             SettingsGroup(Icons.Filled.Info, "Hakkında") {
                 Text("Ayaz Viewer ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyLarge)
+                Text("Geliştirici: TURKMOOD", style = MaterialTheme.typography.bodyMedium)
                 Text(
                     "PDF ve Excel (XLSX) dosyalarını görüntüleme, düzenleme ve oluşturma uygulaması.",
                     style = MaterialTheme.typography.bodySmall,

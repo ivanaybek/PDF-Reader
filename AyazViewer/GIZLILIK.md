@@ -1,6 +1,6 @@
 # Ayaz Viewer – Gizlilik Politikası
 
-**Yürürlük tarihi:** 9 Kasım 2026 • **Uygulama:** Ayaz Viewer (`com.ayaz.viewer`)
+**Yürürlük tarihi:** 9 Kasım 2026 • **Uygulama:** Ayaz Viewer (`com.turkmood.pdfreader`) • **Geliştirici:** TURKMOOD
 
 Ayaz Viewer, PDF ve Excel (XLSX) dosyalarını görüntüleme, düzenleme ve oluşturma uygulamasıdır.
 Uygulama **tamamen cihazınızda, internet olmadan** çalışır.
@@ -51,7 +51,7 @@ Sorularınız için Google Play'deki uygulama sayfasında belirtilen geliştiric
 
 # Ayaz Viewer – Privacy Policy (English)
 
-**Effective date:** 9 November 2026 • **App:** Ayaz Viewer (`com.ayaz.viewer`)
+**Effective date:** 9 November 2026 • **App:** Ayaz Viewer (`com.turkmood.pdfreader`) • **Developer:** TURKMOOD
 
 Ayaz Viewer is an app for viewing, editing and creating PDF and Excel (XLSX) files. It works **entirely on your
 device, without an internet connection**.
