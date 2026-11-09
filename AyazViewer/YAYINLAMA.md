@@ -90,7 +90,7 @@ Beyanları onaylayıp **Uygulama oluştur**'a basın.
 
 | Görev | Ne seçilecek |
 |---|---|
-| **Gizlilik politikası** | `https://github.com/ivanaybek/Search-Movie/blob/main/AyazViewer/GIZLILIK.md` |
+| **Gizlilik politikası** | `https://github.com/ivanaybek/PDF-Reader/blob/main/AyazViewer/GIZLILIK.md` |
 | **Uygulama erişimi** | "Tüm işlevler herhangi bir özel erişim gerekmeden kullanılabilir" |
 | **Reklamlar** | "Hayır, uygulamamda reklam yok" |
 | **İçerik derecelendirmesi** | E-posta girin → kategori: **Diğer tüm uygulama türleri** → tüm sorulara **Hayır** → sonuç: 3+ / Herkes |

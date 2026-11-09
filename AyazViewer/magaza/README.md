@@ -92,7 +92,7 @@ Notlar: Parola korumalı dosyalar ve eski .xls (Excel 97-2003) biçimi desteklen
 | Uygulama kategorisi | **Uygulama → Verimlilik** (Productivity) |
 | Etiketler | PDF görüntüleyici, Belge düzenleyici, Elektronik tablo |
 | İletişim e-postası | Kendi e-posta adresiniz (Play zorunlu tutar, mağazada görünür) |
-| Gizlilik politikası URL'si | `https://github.com/ivanaybek/Search-Movie/blob/main/AyazViewer/GIZLILIK.md` |
+| Gizlilik politikası URL'si | `https://github.com/ivanaybek/PDF-Reader/blob/main/AyazViewer/GIZLILIK.md` |
 | Ücretli / ücretsiz | Ücretsiz |
 | Reklam içeriyor mu? | Hayır |
 | Varsayılan dil | Türkçe – tr-TR |
