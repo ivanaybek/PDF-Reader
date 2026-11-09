@@ -181,6 +181,7 @@ fun PdfViewerScreen(
     onShare: () -> Unit,
     onPageChanged: (Int) -> Unit,
     edit: PdfEditActions,
+    onSaveCopy: () -> Unit,
     startInEdit: Boolean = false,
 ) {
     val extra = LocalAyazColors.current
@@ -346,6 +347,11 @@ fun PdfViewerScreen(
                                     text = { Text("Yakınlaştırmayı sıfırla") },
                                     onClick = { menu = false; zoom.reset() },
                                 )
+                                DropdownMenuItem(
+                                    text = { Text("Telefona kaydet") },
+                                    leadingIcon = { Icon(AyazIcons.Save, null) },
+                                    onClick = { menu = false; onSaveCopy() },
+                                )
                             }
                         }
                     },
@@ -390,7 +396,8 @@ fun PdfViewerScreen(
             if (es.busy) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
             val indicatorAlpha by animateFloatAsState(if (indicatorVisible || searchOpen) 1f else 0f, tween(300), label = "indicator")
             Box(
-                Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 20.dp)
+                // Scaffold dolgusu gezinme çubuğunu zaten içerir; ayrıca eklenirse gösterge fazla yukarıda kalır.
+                Modifier.align(Alignment.BottomCenter).padding(bottom = 20.dp)
                     .graphicsLayer { alpha = indicatorAlpha },
             ) {
                 Box(
@@ -674,14 +681,16 @@ private fun PdfPageItem(
 ) {
     val renderScale = settledScale.coerceIn(1f, 3f)
     val targetWidth = (pageWidthPx * renderScale).roundToInt()
-    var bitmap by remember(index) { mutableStateOf(controller.cached(index, targetWidth) ?: controller.bestCached(index)) }
-    LaunchedEffect(index, targetWidth) {
+    // Denetleyici değişince (kaydetme sonrası yeniden açma, sayfa döndürme/silme) sayfa yeni dosyadan
+    // yeniden çizilmeli; aksi halde eski görüntü ekranda kalır ve kaydedilen çizimler görünmez.
+    var bitmap by remember(controller, index) { mutableStateOf(controller.cached(index, targetWidth) ?: controller.bestCached(index)) }
+    LaunchedEffect(controller, index, targetWidth) {
         if (pageWidthPx < 50) return@LaunchedEffect // yerleşim henüz ölçülmedi
         // Kısa bir gecikme: hızlı kaydırmada ekrandan çıkan sayfalar hiç çizilmez.
         if (controller.cached(index, targetWidth) == null) delay(30)
         controller.render(index, targetWidth)?.let { bitmap = it }
     }
-    val aspect = remember(index, sizesVersion) { controller.aspect(index) }
+    val aspect = remember(controller, index, sizesVersion) { controller.aspect(index) }
     Box(
         Modifier
             .fillMaxWidth()

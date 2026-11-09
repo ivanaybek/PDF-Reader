@@ -1,15 +1,20 @@
 # PDF Reader
 
-| [`AyazViewer/`](AyazViewer/) | **Ayaz Viewer** – çevrimdışı PDF ve Excel (XLSX) görüntüleyici/düzenleyici Android uygulaması (Kotlin, Jetpack Compose) |
+<img src="AyazViewer/magaza/simge-512.png" alt="Ayaz Viewer" width="72" align="left">
 
-## Ayaz Viewer – hızlı bağlantılar
+**Ayaz Viewer** – çevrimdışı çalışan PDF ve Excel görüntüleyici, düzenleyici ve oluşturucu (Android).
+WhatsApp ve Telegram ile paylaşım. Reklam, hesap ve internet izni yok.
+<br clear="left">
 
-- 📱 **Kurulabilir APK:** [`AyazViewer/AyazViewer-debug.apk`](AyazViewer/AyazViewer-debug.apk)
-  (SHA-256: [`AyazViewer-debug.apk.sha256`](AyazViewer/AyazViewer-debug.apk.sha256))
-- 📖 **Kullanım, derleme ve release imzalama:** [`AyazViewer/README.md`](AyazViewer/README.md)
-- ✅ **Test raporu:** [`AyazViewer/TEST_RAPORU.md`](AyazViewer/TEST_RAPORU.md)
-- 📄 **Örnek dosyalar:** [`AyazViewer/samples/`](AyazViewer/samples/)
-- ⚙️ **Otomatik derleme ve testler:** [`.github/workflows/ayaz-viewer.yml`](.github/workflows/ayaz-viewer.yml)
+![Ayaz Viewer](AyazViewer/magaza/tanitim-gorseli-1024x500.png)
 
-APK, GitHub Actions üzerinde derlenir; derleme, birim testleri ve Android 13/15 emülatör
-testleri geçtikten sonra depoya otomatik olarak eklenir.
+| Ne arıyorsunuz? | Nereye bakın |
+|---|---|
+| Telefona kurulacak dosya | [`AyazViewer/AyazViewer-debug.apk`](AyazViewer/AyazViewer-debug.apk) → **⬇ Download raw file** |
+| Uygulama hakkında her şey | [`AyazViewer/README.md`](AyazViewer/README.md) |
+| Nasıl kullanılır | [`AyazViewer/KULLANIM.md`](AyazViewer/KULLANIM.md) |
+| Google Play'de yayınlama | [`AyazViewer/YAYINLAMA.md`](AyazViewer/YAYINLAMA.md) |
+| Play Store metinleri ve görselleri | [`AyazViewer/magaza/`](AyazViewer/magaza/) |
+| Gizlilik politikası | [`AyazViewer/GIZLILIK.md`](AyazViewer/GIZLILIK.md) |
+| Test sonuçları | [`AyazViewer/TEST_RAPORU.md`](AyazViewer/TEST_RAPORU.md) |
+| Kaynak kod | [`AyazViewer/app/`](AyazViewer/app/) |
