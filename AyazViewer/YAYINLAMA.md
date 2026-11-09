@@ -1,11 +1,13 @@
 # Ayaz Viewer'ı Google Play'de yayınlama
 
 Uygulama yayına hazırdır: kod, testler, gizlilik politikası, mağaza metinleri ve görseller bu depoda.
-**Sizin yapmanız gereken 3 iş kaldı:**
+Uygulama **TURKMOOD** geliştirici hesabıyla (kuruluş hesabı) yayınlanacak; mağazada uygulama adının altında
+geliştirici olarak "TURKMOOD" görünür. Paket adı: `com.turkmood.pdfreader`.
 
-1. [Google Play geliştirici hesabı açmak](#1-google-play-geliştirici-hesabı) (bir kez, 25 $)
-2. [Yükleme anahtarı oluşturup GitHub'a eklemek](#2-yükleme-anahtarı-imza) (bir kez, ~10 dakika)
-3. [Play Console'da uygulamayı oluşturup AAB dosyasını yüklemek](#3-play-consoleda-uygulamayı-oluşturma)
+**Sizin yapmanız gereken 2 iş kaldı:**
+
+1. [Yükleme anahtarı oluşturup GitHub'a eklemek](#2-yükleme-anahtarı-imza) (bir kez, ~10 dakika)
+2. [Play Console'da uygulamayı oluşturup AAB dosyasını yüklemek](#3-play-consoleda-uygulamayı-oluşturma)
 
 > **APK mı, AAB mi?** `AyazViewer-debug.apk` telefona doğrudan kurmak içindir, Play'e **yüklenmez**.
 > Google Play yalnızca imzalı **AAB** (Android App Bundle) dosyası kabul eder. AAB'yi GitHub otomatik üretir (adım 2).
@@ -14,13 +16,10 @@ Uygulama yayına hazırdır: kod, testler, gizlilik politikası, mağaza metinle
 
 ## 1. Google Play geliştirici hesabı
 
-1. <https://play.google.com/console> adresine Google hesabınızla girin.
-2. **Kişisel** hesap türünü seçin, bir kerelik 25 $ ücreti ödeyin ve kimlik doğrulamasını tamamlayın
-   (kimlik belgesi ve telefon doğrulaması istenir; onay birkaç gün sürebilir).
+✅ Hazır: **TURKMOOD** (kuruluş hesabı). <https://play.google.com/console> adresinden girin.
 
-> ⚠️ **Yeni kişisel hesaplar için kural:** Uygulamayı herkese açmadan önce **en az 12 kişiyle, 14 gün
-> boyunca kapalı test** yapmanız zorunludur. Ailenizden ve arkadaşlarınızdan 12 Gmail adresi toplayın
-> (ayrıntısı 3.5. adımda).
+> Kuruluş hesaplarında, kişisel hesaplardaki "12 kişiyle 14 gün kapalı test" zorunluluğu **yoktur**;
+> uygulamayı doğrudan herkese açık yayına gönderebilirsiniz (3.5. adım).
 
 ## 2. Yükleme anahtarı (imza)
 
@@ -118,20 +117,18 @@ Beyanları onaylayıp **Uygulama oluştur**'a basın.
 ("Google tarafından oluşturulan anahtar") devam edin. Böylece asıl uygulama anahtarını Google saklar; sizin
 `ayaz-upload.jks` dosyanız yalnızca yükleme anahtarıdır. Kaybederseniz Play desteğinden sıfırlatabilirsiniz.
 
-### 3.5 Kapalı test (yeni kişisel hesaplar için zorunlu)
+### 3.5 (İsteğe bağlı) Dahili test
 
-1. **Test ve yayınlama → Test → Kapalı test** → bir kanal açın (ör. "Alfa").
-2. **Test kullanıcıları**: e-posta listesi oluşturup en az **12 Gmail adresi** ekleyin.
-3. **Yeni sürüm oluştur** → `AyazViewer-1.0.0.aab` dosyasını yükleyin.
-   Sürüm notu örneği: `İlk sürüm: PDF ve Excel görüntüleme, düzenleme, oluşturma ve WhatsApp/Telegram paylaşımı.`
-4. **Sürümü incele → Kullanıma sun**. Google incelemesi genellikle 1–3 gün sürer.
-5. Test kullanıcılarına "katılma bağlantısı"nı gönderin; uygulamayı yükleyip **14 gün** boyunca yüklü tutmaları gerekir.
+Herkese açmadan önce kendi telefonunuzda Play üzerinden denemek isterseniz: **Test ve yayınlama → Test →
+Dahili test** → kendi Gmail adresinizi ekleyin → AAB'yi yükleyin. Dahili test birkaç dakikada yayına çıkar.
 
 ### 3.6 Herkese açık yayın (Üretim)
 
-14 gün dolunca Kontrol panelinde **Üretim erişimi için başvur** çıkar. Birkaç soruyu yanıtlayıp başvurun.
-Onaydan sonra **Üretim → Yeni sürüm oluştur** → AAB'yi yükleyin → **Kullanıma sun**. Uygulamanız artık
-Google Play'de herkese açıktır. 🎉
+1. **Test ve yayınlama → Üretim → Yeni sürüm oluştur** → `AyazViewer-1.0.0.aab` dosyasını yükleyin.
+2. Sürüm notu örneği: `İlk sürüm: PDF ve Excel görüntüleme, düzenleme, oluşturma ve WhatsApp/Telegram paylaşımı.`
+3. **Sürümü incele → Üretime sun**. Google incelemesi genellikle 1–7 gün sürer.
+
+Onaydan sonra uygulamanız Google Play'de **TURKMOOD** adıyla herkese açıktır. 🎉
 
 ---
 
@@ -147,9 +144,9 @@ Google Play'de herkese açıktır. 🎉
 
 ## Sık sorulan sorular
 
-**Paket adı (`com.ayaz.viewer`) Play'de alınmış derse?**
-`AyazViewer/app/build.gradle.kts` içindeki `applicationId = "com.ayaz.viewer"` satırını size özel bir adla
-değiştirin (ör. `com.aybek.ayazviewer`). Paket adı yayından sonra bir daha değiştirilemez.
+**Paket adı nedir?**
+`com.turkmood.pdfreader` (TURKMOOD). İlk yüklemeden sonra bir daha değiştirilemez. Play "bu ad alınmış" derse
+`AyazViewer/app/build.gradle.kts` içindeki `applicationId` satırını başka bir adla değiştirin.
 
 **İnceleme reddedilirse?**
 Play Console'daki e-postada nedeni yazar. Genellikle eksik bir form (veri güvenliği, gizlilik politikası) veya

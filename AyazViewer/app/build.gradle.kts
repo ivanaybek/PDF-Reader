@@ -20,7 +20,8 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.ayaz.viewer"
+        // Google Play'deki kalıcı kimlik (TURKMOOD). Kod paketi (namespace) com.ayaz.viewer olarak kalır.
+        applicationId = "com.turkmood.pdfreader"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

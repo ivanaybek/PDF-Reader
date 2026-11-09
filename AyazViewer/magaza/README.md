@@ -89,6 +89,8 @@ Notlar: Parola korumalı dosyalar ve eski .xls (Excel 97-2003) biçimi desteklen
 
 | Alan | Değer |
 |---|---|
+| Geliştirici adı | **TURKMOOD** (Play Console hesabından otomatik gelir) |
+| Paket adı | `com.turkmood.pdfreader` |
 | Uygulama kategorisi | **Uygulama → Verimlilik** (Productivity) |
 | Etiketler | PDF görüntüleyici, Belge düzenleyici, Elektronik tablo |
 | İletişim e-postası | Kendi e-posta adresiniz (Play zorunlu tutar, mağazada görünür) |

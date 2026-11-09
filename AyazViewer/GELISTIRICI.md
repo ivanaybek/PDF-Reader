@@ -2,7 +2,7 @@
 
 [← Ana sayfa](README.md) • [Kullanım](KULLANIM.md) • [Yayınlama](YAYINLAMA.md) • [Test raporu](TEST_RAPORU.md)
 
-- Paket adı: `com.ayaz.viewer` • Sürüm: 1.0.0 (versionCode 1)
+- Geliştirici: TURKMOOD • Paket adı (applicationId): `com.turkmood.pdfreader` (kod paketi: `com.ayaz.viewer`) • Sürüm: 1.0.0 (versionCode 1)
 - Android 8.0+ (minSdk 26); hedef ve derleme: Android 16 (targetSdk/compileSdk 36)
 - Derleme ve testler GitHub Actions'ta otomatik çalışır: `.github/workflows/ayaz-viewer.yml`
 
