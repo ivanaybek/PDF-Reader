@@ -18,3 +18,5 @@ WhatsApp ve Telegram ile paylaşım. Reklam, hesap ve internet izni yok.
 | Gizlilik politikası | [`AyazViewer/GIZLILIK.md`](AyazViewer/GIZLILIK.md) |
 | Test sonuçları | [`AyazViewer/TEST_RAPORU.md`](AyazViewer/TEST_RAPORU.md) |
 | Kaynak kod | [`AyazViewer/app/`](AyazViewer/app/) |
+
+> 🤖 Bu projede yapay zekayla değişiklik yapacaksanız önce [`CLAUDE.md`](CLAUDE.md) dosyasını okutun.
